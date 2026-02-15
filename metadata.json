@@ -1,0 +1,7 @@
+{
+  "name": "Team Master Pro",
+  "description": "Uma plataforma completa para gestão de times esportivos, abrangendo desde o cadastro de atletas e comissão técnica até o controle de documentos, estatísticas de jogos e geração de banners promocionais.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
