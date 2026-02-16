@@ -115,9 +115,7 @@ const App: React.FC = () => {
   const [staff] = useState<Staff[]>([]);
   const [matches] = useState<Match[]>(INITIAL_MATCHES);
 
-  // Filtros Globais: Alguns componentes podem filtrar por modalidade (Matches), outros apenas por gênero (Roster)
-  // No Roster, atletas de campo vs futsal vs fut7 geralmente são listados separadamente dependendo da escolha no Layout.
-  // Vamos filtrar os players aqui para passar pros views o que faz sentido
+  // Filtros Globais
   const filteredPlayers = players.filter(p => p.gender === gender);
   const filteredMatches = matches.filter(m => m.gender === gender && m.modality === modality);
   const filteredStaff = staff.filter(s => s.gender === gender);
@@ -135,7 +133,7 @@ const App: React.FC = () => {
       case 'MATCHES':
         return <Matches matches={filteredMatches} />;
       case 'BANNERS':
-        return <Banners matches={filteredMatches} players={filteredPlayers} modality={modality} theme={theme} />;
+        return <Banners matches={filteredMatches} players={filteredPlayers} modality={modality} theme={theme} gender={gender} />;
       case 'DOCUMENTS':
         return <Documents players={filteredPlayers} staff={filteredStaff} />;
       case 'SETTINGS':
