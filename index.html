@@ -79,6 +79,19 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
+    <script>
+        /**
+         * BRIDGE DE AMBIENTE (Browser/Static Hosting)
+         * Define o objeto 'process' globalmente para que bibliotecas Node-compatible
+         * funcionem no navegador sem um bundler.
+         */
+        window.process = {
+            env: {
+                // INSIRA SUA CHAVE AQUI PARA DEPLOY NA HOSTINGER:
+                API_KEY: "" 
+            }
+        };
+    </script>
 <script type="importmap">
 {
   "imports": {
