@@ -18,7 +18,8 @@ import {
   UserCircle,
   Palette,
   Users2,
-  Baby
+  Baby,
+  Shield
 } from 'lucide-react';
 import { ViewType, Modality, TeamTheme, TeamGender } from '../types.ts';
 
@@ -68,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({
   }
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc]">
+    <div className="min-h-screen flex bg-slate-50">
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden"
@@ -84,8 +85,12 @@ const Layout: React.FC<LayoutProps> = ({
         
         <div className="p-8">
           <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => onViewChange('DASHBOARD')}>
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/20 group-hover:scale-110 transition-transform">
-              <Trophy size={24} className="text-white" />
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/20 group-hover:scale-110 transition-transform overflow-hidden">
+              {theme.crestUrl ? (
+                <img src={theme.crestUrl} className="w-full h-full object-contain p-1" />
+              ) : (
+                <Trophy size={24} className="text-white" />
+              )}
             </div>
             <h1 className="text-xl font-black tracking-tight leading-tight">
               {theme.teamName.split(' ')[0]}<span className="text-white/60 font-medium">{theme.teamName.split(' ').slice(1).join(' ')}</span>
@@ -139,7 +144,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-72 flex flex-col min-h-screen">
+      <main className="flex-1 lg:ml-72 flex flex-col min-h-screen dynamic-view-bg relative">
         <header className="bg-white/80 backdrop-blur-md border-b sticky top-0 z-30 px-8 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-6">
             <button 
@@ -218,8 +223,8 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto w-full flex-1">
-          <div className="mb-6 flex items-center space-x-3 text-slate-400">
+        <div className="p-8 max-w-7xl mx-auto w-full flex-1 relative z-10">
+          <div className="mb-6 flex items-center space-x-3 text-slate-400/60">
             <Users2 size={16} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">{currentGender} • {currentModality}</span>
           </div>

@@ -19,17 +19,39 @@
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
+            transition: background-color 0.5s ease;
         }
 
         .sports-gradient {
             background: linear-gradient(160deg, var(--secondary-color) 0%, var(--primary-color) 100%);
         }
 
+        /* Degradê Dinâmico do Fundo das Views */
+        .dynamic-view-bg {
+            background: linear-gradient(135deg, 
+                rgba(248, 250, 252, 1) 0%, 
+                rgba(241, 245, 249, 1) 100%
+            );
+            position: relative;
+            min-height: 100vh;
+        }
+
+        .dynamic-view-bg::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+            opacity: 0.08; /* Muito sutil para não cansar a vista */
+            pointer-events: none;
+            z-index: 0;
+        }
+
         .glass-card {
-            background: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-glow {
@@ -80,22 +102,9 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
     <script>
-        /**
-         * BRIDGE DE AMBIENTE (Hostinger / Static Hosting)
-         * Se você não estiver usando um processo de build que injeta chaves,
-         * coloque sua chave do Gemini no campo API_KEY abaixo.
-         */
         window.process = window.process || {};
         window.process.env = window.process.env || {};
-        
-        // 1. Tente carregar do LocalStorage (útil para testes)
-        // 2. Ou use o valor hardcoded se você estiver fazendo deploy estático puro
         window.process.env.API_KEY = window.process.env.API_KEY || ""; 
-
-        // Se o valor acima for vazio, a aplicação tentará buscar do objeto global
-        if (!window.process.env.API_KEY) {
-            console.warn("TeamMaster Pro: Nenhuma API_KEY detectada no window.process.env");
-        }
     </script>
 <script type="importmap">
 {

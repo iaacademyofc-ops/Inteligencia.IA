@@ -111,6 +111,7 @@ export interface TeamTheme {
   secondary: string;
   accent: string;
   teamName: string;
+  crestUrl?: string;
   clubDocuments: TeamDocument[];
 }
 
