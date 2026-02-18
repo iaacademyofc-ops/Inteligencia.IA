@@ -20,7 +20,7 @@ import {
   Users2,
   Baby
 } from 'lucide-react';
-import { ViewType, Modality, TeamTheme, TeamGender } from '../types';
+import { ViewType, Modality, TeamTheme, TeamGender } from '../types.ts';
 
 interface LayoutProps {
   children: React.ReactNode;

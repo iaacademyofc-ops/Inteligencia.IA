@@ -1,15 +1,15 @@
 
 import React, { useState } from 'react';
-import Layout from './components/Layout';
-import Dashboard from './views/Dashboard';
-import Roster from './views/Roster';
-import Matches from './views/Matches';
-import Banners from './views/Banners';
-import Documents from './views/Documents';
-import OfficialNumbers from './views/OfficialNumbers';
-import AthletePortal from './views/AthletePortal';
-import Settings from './views/Settings';
-import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender } from './types';
+import Layout from './components/Layout.tsx';
+import Dashboard from './views/Dashboard.tsx';
+import Roster from './views/Roster.tsx';
+import Matches from './views/Matches.tsx';
+import Banners from './views/Banners.tsx';
+import Documents from './views/Documents.tsx';
+import OfficialNumbers from './views/OfficialNumbers.tsx';
+import AthletePortal from './views/AthletePortal.tsx';
+import Settings from './views/Settings.tsx';
+import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender } from './types.ts';
 
 const INITIAL_PLAYERS: Player[] = [
   { 
