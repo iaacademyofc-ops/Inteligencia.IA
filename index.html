@@ -81,16 +81,21 @@
     </style>
     <script>
         /**
-         * BRIDGE DE AMBIENTE (Browser/Static Hosting)
-         * Define o objeto 'process' globalmente para que bibliotecas Node-compatible
-         * funcionem no navegador sem um bundler.
+         * BRIDGE DE AMBIENTE (Hostinger / Static Hosting)
+         * Se você não estiver usando um processo de build que injeta chaves,
+         * coloque sua chave do Gemini no campo API_KEY abaixo.
          */
-        window.process = {
-            env: {
-                // INSIRA SUA CHAVE AQUI PARA DEPLOY NA HOSTINGER:
-                API_KEY: "" 
-            }
-        };
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        
+        // 1. Tente carregar do LocalStorage (útil para testes)
+        // 2. Ou use o valor hardcoded se você estiver fazendo deploy estático puro
+        window.process.env.API_KEY = window.process.env.API_KEY || ""; 
+
+        // Se o valor acima for vazio, a aplicação tentará buscar do objeto global
+        if (!window.process.env.API_KEY) {
+            console.warn("TeamMaster Pro: Nenhuma API_KEY detectada no window.process.env");
+        }
     </script>
 <script type="importmap">
 {

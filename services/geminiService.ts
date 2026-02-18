@@ -1,9 +1,25 @@
 
 import { GoogleGenAI } from "@google/genai";
-import { Match, Player, Modality, TeamGender } from "../types";
+import { Match, Player, Modality, TeamGender } from "../types.ts";
 
-/* Utilizando a chave de API diretamente do ambiente conforme as diretrizes */
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Função auxiliar para obter a chave de API de forma segura em navegadores
+ * contornando possíveis substituições de bundlers em tempo de build.
+ */
+const getApiKey = (): string => {
+  // Tenta process.env (padrão Node/Bundlers)
+  try {
+    if (process.env.API_KEY) return process.env.API_KEY;
+  } catch (e) {}
+
+  // Tenta window.process.env (Fallback para nosso polyfill no index.html)
+  try {
+    const winProcess = (window as any).process;
+    if (winProcess?.env?.API_KEY) return winProcess.env.API_KEY;
+  } catch (e) {}
+
+  return "";
+};
 
 export const generateMatchPreview = async (
   match: Match, 
@@ -12,6 +28,13 @@ export const generateMatchPreview = async (
   gender: TeamGender,
   highlightedPlayers: Player[]
 ): Promise<string> => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API Key não configurada. Por favor, adicione sua chave Gemini no index.html ou variável de ambiente.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   try {
     const seasonTopScorer = [...squad].sort((a, b) => b.stats.goals - a.stats.goals)[0];
     const seasonTopAssistant = [...squad].sort((a, b) => b.stats.assists - a.stats.assists)[0];
@@ -42,7 +65,7 @@ ${highlightsText}
 
 REGRAS DE OURO:
 1. Use terminologia de ${modality} (${modalityLingo}).
-2. Se houver protagonistas (destaques), fale que eles estão prontos para o combate.
+2. Se houver protagonists (destaques), fale que eles estão prontos para o combate.
 3. Crie um senso de URGÊNCIA e CONVOCAÇÃO para a torcida.
 4. Use emojis que combinem com a energia do esporte.
 5. Máximo 280 caracteres. Termine com uma pergunta para engajamento.`
@@ -62,6 +85,13 @@ export const generateMatchSummary = async (
   gender: TeamGender,
   highlightedPlayers: Player[]
 ): Promise<string> => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    throw new Error("API Key não configurada.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
   try {
     const goals = match.events.filter(e => e.type === 'GOAL');
     const resultDescription = match.scoreHome > match.scoreAway ? "UMA VITÓRIA GIGANTE" : 
