@@ -11,13 +11,6 @@ import AthletePortal from './views/AthletePortal.tsx';
 import Settings from './views/Settings.tsx';
 import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender, TeamDocument } from './types.ts';
 
-const INITIAL_MATCHES: Match[] = [
-  { id: 'm1', opponent: 'Flamengo', date: '2024-06-15', time: '16:00', venue: 'Maracanã', type: MatchType.OFFICIAL, gender: TeamGender.MALE, scoreHome: 0, scoreAway: 0, events: [], isFinished: false, modality: Modality.FOOTBALL },
-  { id: 'm2', opponent: 'Corinthians Feminino', date: '2024-06-20', time: '15:00', venue: 'Neo Química Arena', type: MatchType.OFFICIAL, gender: TeamGender.FEMALE, scoreHome: 0, scoreAway: 0, events: [], isFinished: false, modality: Modality.FOOTBALL },
-  { id: 'm3', opponent: 'Magnus Futsal', date: '2024-05-30', time: '19:30', venue: 'Arena Sorocaba', type: MatchType.OFFICIAL, gender: TeamGender.MALE, scoreHome: 2, scoreAway: 1, events: [], isFinished: true, modality: Modality.FUTSAL },
-  { id: 'm4', opponent: 'SA Fut7 Team', date: '2024-07-05', time: '21:00', venue: 'Complexo Esportivo', type: MatchType.OFFICIAL, gender: TeamGender.MALE, scoreHome: 0, scoreAway: 0, events: [], isFinished: false, modality: Modality.FUT7 },
-];
-
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('DASHBOARD');
   const [modality, setModality] = useState<Modality>(Modality.FOOTBALL);
@@ -38,7 +31,7 @@ const App: React.FC = () => {
   
   const [players, setPlayers] = useState<Player[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
+  const [matches, setMatches] = useState<Match[]>([]); // Inicializado vazio conforme solicitado
 
   const filteredPlayers = players.filter(p => p.gender === gender);
   const filteredMatches = matches.filter(m => m.gender === gender && m.modality === modality);
