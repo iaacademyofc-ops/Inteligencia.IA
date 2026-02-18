@@ -1,37 +1,64 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   User, 
-  Lock, 
   ChevronRight, 
   Trophy, 
   FileText, 
   Calendar, 
   LogOut, 
   Activity, 
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  ArrowRight,
-  Hash,
-  Medal,
-  Star
+  ShieldCheck, 
+  CheckCircle2, 
+  AlertCircle, 
+  Clock, 
+  ArrowRight, 
+  Hash, 
+  Medal, 
+  Star, 
+  Plus, 
+  X, 
+  Upload, 
+  Eye, 
+  FileUp, 
+  Download, 
+  Fingerprint, 
+  CreditCard, 
+  Vote, 
+  Home,
+  MapPin,
+  TrendingUp,
+  History
 } from 'lucide-react';
-import { Player, Modality, Match, DocumentStatus, Achievement } from '../types';
+import { Player, Modality, Match, DocumentStatus, TeamDocument } from '../types';
 
 interface AthletePortalProps {
   players: Player[];
   matches: Match[];
+  onAddDocument: (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => void;
   onExit: () => void;
 }
 
-const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit }) => {
+const DOCUMENT_TYPES = [
+  { id: 'RG_CNH', label: 'RG ou CNH', icon: CreditCard },
+  { id: 'CPF', label: 'CPF', icon: Fingerprint },
+  { id: 'TITULO', label: 'Título de Eleitor', icon: Vote },
+  { id: 'RESIDENCIA', label: 'Comprovante de Residência', icon: Home },
+];
+
+const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDocument, onExit }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [playerNumber, setPlayerNumber] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [loggedPlayer, setLoggedPlayer] = useState<Player | null>(null);
   const [error, setError] = useState('');
+
+  // UI States
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedViewDoc, setSelectedViewDoc] = useState<TeamDocument | null>(null);
+  const [formDocType, setFormDocType] = useState('');
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +74,38 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
     } else {
       setError('Acesso negado. O número da camisa ou o nome não conferem com nossos registros.');
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileName(file.name);
+    }
+  };
+
+  const handleUploadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loggedPlayer || !formDocType || !selectedFileName) return;
+
+    const newDoc: TeamDocument = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: formDocType,
+      status: DocumentStatus.PENDING,
+      issueDate: new Date().toISOString().split('T')[0],
+      documentNumber: 'AT-' + Math.floor(Math.random() * 10000)
+    };
+
+    onAddDocument(loggedPlayer.id, 'Atleta', newDoc);
+    
+    // Atualiza localmente o objeto do jogador para refletir na UI do portal imediatamente
+    setLoggedPlayer({
+      ...loggedPlayer,
+      documents: [...loggedPlayer.documents, newDoc]
+    });
+
+    setShowUploadModal(false);
+    setSelectedFileName(null);
+    setFormDocType('');
   };
 
   const getStatusIcon = (status: DocumentStatus) => {
@@ -138,7 +197,10 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
     );
   }
 
-  const nextMatch = matches.find(m => !m.isFinished);
+  const upcomingMatches = matches.filter(m => !m.isFinished).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const goalsPerMatch = loggedPlayer && loggedPlayer.stats.matches > 0 
+    ? (loggedPlayer.stats.goals / loggedPlayer.stats.matches).toFixed(2) 
+    : '0.00';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
@@ -162,6 +224,7 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
           </div>
           
           <div className="text-center md:text-left flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-1">Dossiê do Atleta 2024</p>
             <h2 className="text-4xl font-black tracking-tight italic">{loggedPlayer?.name.toUpperCase()}</h2>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
               <span className="bg-white/10 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">
@@ -182,30 +245,80 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 px-4 md:px-0">
         <div className="lg:col-span-2 space-y-8">
           {/* Stats Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
-               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center group hover:border-blue-200 transition-all">
+               <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Activity size={24} />
                </div>
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Partidas</p>
-               <p className="text-4xl font-black text-slate-900">{loggedPlayer?.stats.matches}</p>
+               <p className="text-3xl font-black text-slate-900">{loggedPlayer?.stats.matches}</p>
             </div>
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
-               <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mb-4">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center group hover:border-orange-200 transition-all">
+               <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Trophy size={24} />
                </div>
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gols</p>
-               <p className="text-4xl font-black text-slate-900">{loggedPlayer?.stats.goals}</p>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gols Totais</p>
+               <p className="text-3xl font-black text-slate-900">{loggedPlayer?.stats.goals}</p>
             </div>
-            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center">
-               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+            <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center group hover:border-emerald-200 transition-all">
+               <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <ShieldCheck size={24} />
                </div>
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assistências</p>
-               <p className="text-4xl font-black text-slate-900">{loggedPlayer?.stats.assists}</p>
+               <p className="text-3xl font-black text-slate-900">{loggedPlayer?.stats.assists}</p>
+            </div>
+            <div className="bg-slate-900 p-6 rounded-[2rem] shadow-xl flex flex-col items-center justify-center text-center group hover:bg-blue-600 transition-all">
+               <div className="w-12 h-12 rounded-2xl bg-white/10 text-white flex items-center justify-center mb-4">
+                  <TrendingUp size={24} />
+               </div>
+               <p className="text-[10px] font-black text-white/40 uppercase tracking-widest">Gols / Jogo</p>
+               <p className="text-3xl font-black text-white italic">{goalsPerMatch}</p>
+            </div>
+          </div>
+
+          {/* Aviso de Jogos */}
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-8 text-slate-50 opacity-10 group-hover:scale-110 transition-transform pointer-events-none">
+              <Calendar size={140} />
+            </div>
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <h3 className="text-xl font-black text-slate-900 flex items-center space-x-3">
+                 <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                   <Calendar size={20} />
+                 </div>
+                 <span>Próximos Confrontos</span>
+              </h3>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{upcomingMatches.length} JOGOS AGENDADOS</span>
+            </div>
+
+            <div className="space-y-4 relative z-10">
+               {upcomingMatches.length > 0 ? upcomingMatches.slice(0, 2).map((match) => (
+                 <div key={match.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 hover:bg-white hover:shadow-xl transition-all duration-300">
+                    <div className="flex items-center space-x-6">
+                       <div className="text-center">
+                          <p className="text-xs font-black text-blue-600 uppercase">{new Date(match.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
+                          <p className="text-lg font-black text-slate-900">{match.time}</p>
+                       </div>
+                       <div className="h-10 w-[1px] bg-slate-200 hidden md:block"></div>
+                       <div>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">ADVERSÁRIO</p>
+                          <h4 className="text-xl font-black text-slate-900 italic uppercase">vs {match.opponent}</h4>
+                       </div>
+                    </div>
+                    <div className="flex flex-col items-center md:items-end">
+                       <div className="flex items-center space-x-2 text-slate-500 mb-1">
+                          <MapPin size={14} />
+                          <span className="text-xs font-bold">{match.venue}</span>
+                       </div>
+                       <span className="bg-blue-600 text-white text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-lg shadow-blue-500/20">PARTIDA {match.type.toUpperCase()}</span>
+                    </div>
+                 </div>
+               )) : (
+                 <div className="py-10 text-center text-slate-400 italic">Sem jogos agendados no momento.</div>
+               )}
             </div>
           </div>
 
@@ -230,9 +343,6 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
                       </div>
                       <h4 className="text-lg font-black text-slate-900 leading-tight mb-1">{ach.title}</h4>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{ach.competition}</p>
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">
-                         {ach.type === 'COLLECTIVE' ? 'Conquista Coletiva' : 'Prêmio Individual'}
-                      </div>
                    </div>
                  ))
                ) : (
@@ -242,70 +352,197 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onExit 
                )}
             </div>
           </div>
-
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform">
-               <Calendar size={120} />
-            </div>
-            <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center space-x-2">
-              <Calendar size={20} className="text-blue-600" />
-              <span>Próximo Compromisso</span>
-            </h3>
-            
-            {nextMatch ? (
-              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-                <div className="text-center md:text-left">
-                  <p className="text-xs font-black text-blue-600 uppercase tracking-widest mb-1">{nextMatch.type}</p>
-                  <p className="text-3xl font-black text-slate-900 italic">vs {nextMatch.opponent.toUpperCase()}</p>
-                  <div className="flex items-center space-x-4 mt-4 text-slate-500 font-bold">
-                    <span className="flex items-center"><Clock size={16} className="mr-1.5" /> {nextMatch.time}</span>
-                    <span className="flex items-center"><Activity size={16} className="mr-1.5" /> {nextMatch.venue}</span>
-                  </div>
-                </div>
-                <div className="bg-slate-50 px-8 py-4 rounded-3xl border text-center">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Data</p>
-                  <p className="text-2xl font-black text-slate-900">{new Date(nextMatch.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-slate-400 italic">Nenhum jogo agendado no momento.</p>
-            )}
-          </div>
         </div>
 
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-          <h3 className="text-xl font-black text-slate-900 mb-6 flex items-center space-x-2">
-            <FileText size={20} className="text-blue-600" />
-            <span>Meus Documentos</span>
-          </h3>
-          <div className="space-y-4">
-            {loggedPlayer?.documents.map(doc => (
-              <div key={doc.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between group hover:bg-white hover:shadow-md transition-all">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white rounded-xl text-slate-400 group-hover:text-blue-600 transition-colors">
-                    <FileText size={18} />
+        <div className="space-y-6">
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-black text-slate-900 flex items-center space-x-2">
+                <FileText size={20} className="text-blue-600" />
+                <span>Meus Documentos</span>
+              </h3>
+              <button 
+                onClick={() => setShowUploadModal(true)}
+                className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {loggedPlayer?.documents.map(doc => (
+                <div key={doc.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between group hover:bg-white hover:shadow-md transition-all">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-white rounded-xl text-slate-400 group-hover:text-blue-600 transition-colors">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800 leading-tight">{doc.type}</p>
+                      <p className="text-[10px] font-medium text-slate-400 uppercase mt-0.5">{doc.documentNumber}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800 leading-tight">{doc.type}</p>
-                    <p className="text-[10px] font-medium text-slate-400 uppercase mt-0.5">Venc: {doc.expiryDate || 'N/A'}</p>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => setSelectedViewDoc(doc)}
+                      className="p-1.5 text-slate-300 hover:text-blue-600 transition-colors"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    {getStatusIcon(doc.status)}
                   </div>
                 </div>
-                {getStatusIcon(doc.status)}
-              </div>
-            ))}
-            {loggedPlayer?.documents.length === 0 && (
-              <p className="text-center text-slate-400 text-sm italic py-8">Nenhum documento anexado.</p>
-            )}
+              ))}
+              {loggedPlayer?.documents.length === 0 && (
+                <div className="text-center py-8">
+                  <FileUp size={32} className="mx-auto text-slate-200 mb-2" />
+                  <p className="text-slate-400 text-xs italic">Nenhum documento enviado.</p>
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="mt-8 p-6 bg-blue-600 rounded-3xl text-white">
-            <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Aviso do Clube</p>
+          <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-blue-500/20">
+            <ShieldCheck size={32} className="mb-4 text-blue-200" />
+            <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Dossiê Seguro</p>
             <p className="text-sm font-medium leading-relaxed">
-              Mantenha seus documentos sempre atualizados para evitar suspensões em jogos oficiais.
+              Seus documentos são criptografados e acessíveis apenas pela secretaria do clube.
             </p>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8 text-center">
+             <History size={32} className="mx-auto text-slate-200 mb-4" />
+             <h4 className="font-black text-slate-900 uppercase text-xs tracking-widest">Resumo da Temporada</h4>
+             <div className="mt-4 pt-4 border-t border-slate-50 space-y-3">
+                <div className="flex justify-between items-center text-xs">
+                   <span className="text-slate-400 font-bold uppercase">Gols p/ Mês</span>
+                   <span className="text-slate-900 font-black">2.4</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                   <span className="text-slate-400 font-bold uppercase">Eficiência</span>
+                   <span className="text-emerald-600 font-black">78%</span>
+                </div>
+             </div>
           </div>
         </div>
       </div>
+
+      {/* MODAL UPLOAD DOCUMENTO */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-white/20 animate-in zoom-in-95 duration-200">
+            <div className="p-8 bg-slate-900 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black tracking-tight">Enviar Documento</h3>
+                <p className="text-[10px] uppercase font-bold text-blue-400 tracking-widest">Atualização de Dossiê</p>
+              </div>
+              <button onClick={() => setShowUploadModal(false)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20"><X size={20} /></button>
+            </div>
+            
+            <form className="p-8 space-y-6" onSubmit={handleUploadSubmit}>
+               <div className="space-y-4">
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Documento</label>
+                     <select 
+                      className="w-full bg-slate-50 border-none rounded-2xl py-4 px-5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20" 
+                      required
+                      value={formDocType}
+                      onChange={(e) => setFormDocType(e.target.value)}
+                    >
+                        <option value="">Selecione...</option>
+                        {DOCUMENT_TYPES.map(t => <option key={t.id} value={t.label}>{t.label}</option>)}
+                     </select>
+                  </div>
+
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    onChange={handleFileChange} 
+                    accept="image/*,.pdf"
+                  />
+
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`p-10 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all ${selectedFileName ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                  >
+                     {selectedFileName ? (
+                       <div className="text-center">
+                          <CheckCircle2 size={40} className="text-blue-600 mb-2 mx-auto" />
+                          <p className="text-xs font-black text-slate-700 uppercase tracking-widest truncate max-w-[200px]">{selectedFileName}</p>
+                       </div>
+                     ) : (
+                       <>
+                          <Upload size={40} className="text-slate-300 mb-2" />
+                          <p className="text-xs font-bold text-slate-500">Clique para selecionar arquivo</p>
+                          <p className="text-[10px] text-slate-400 mt-1 uppercase font-black">PDF ou Imagem</p>
+                       </>
+                     )}
+                  </div>
+               </div>
+               <button 
+                type="submit"
+                disabled={!selectedFileName || !formDocType}
+                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50"
+               >
+                Enviar Documento
+               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* LIGHTBOX VISUALIZAÇÃO */}
+      {selectedViewDoc && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl animate-in fade-in duration-300">
+           <div className="bg-white rounded-[3rem] shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-slate-900 p-8 text-white flex justify-between items-center">
+                 <div className="flex items-center space-x-4">
+                    <div className="p-3 bg-blue-600/20 text-blue-400 rounded-2xl"><FileText size={24} /></div>
+                    <div>
+                       <h3 className="text-xl font-black">{selectedViewDoc.type}</h3>
+                       <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.2em]">REF: {selectedViewDoc.documentNumber}</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setSelectedViewDoc(null)} className="p-2 bg-white/5 rounded-2xl hover:bg-white/10"><X size={20} /></button>
+              </div>
+              
+              <div className="flex-1 bg-slate-100 p-8 flex items-center justify-center">
+                 {/* Simulação de visualização de documento */}
+                 <div className="w-full max-w-sm aspect-[1/1.4] bg-white rounded-xl shadow-2xl border-t-[10px] border-blue-600 p-10 flex flex-col relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4 opacity-5"><ShieldCheck size={80} /></div>
+                    <div className="flex justify-between items-start mb-10">
+                       <ShieldCheck className="text-blue-600" size={32} />
+                       <p className="text-[10px] font-black uppercase text-slate-300">Cópia Digital Oficial</p>
+                    </div>
+                    <div className="space-y-6 flex-1">
+                       <div className="h-4 bg-slate-100 rounded-full w-3/4"></div>
+                       <div className="h-4 bg-slate-100 rounded-full w-1/2"></div>
+                       <div className="grid grid-cols-2 gap-4 pt-4">
+                          <div className="h-20 bg-slate-50 rounded-lg"></div>
+                          <div className="h-20 bg-slate-50 rounded-lg"></div>
+                       </div>
+                       <div className="h-4 bg-slate-100 rounded-full w-full"></div>
+                       <div className="h-4 bg-slate-100 rounded-full w-5/6"></div>
+                    </div>
+                    <div className="mt-10 pt-10 border-t border-slate-100 flex flex-col items-center">
+                       <div className="w-16 h-16 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-200 mb-2">QR</div>
+                       <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Autenticação Sistêmica</p>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="p-8 border-t bg-white flex space-x-4">
+                 <button className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center space-x-2 active:scale-95 transition-all">
+                    <Download size={18} />
+                    <span>Baixar Arquivo</span>
+                 </button>
+                 <button onClick={() => setSelectedViewDoc(null)} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">
+                    Fechar
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

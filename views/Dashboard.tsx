@@ -1,14 +1,15 @@
 
 import React from 'react';
 import { Trophy, Users, Calendar, AlertCircle, TrendingUp, ArrowRight, Star } from 'lucide-react';
-import { Player, Match, MatchType } from '../types';
+import { Player, Match, MatchType, ViewType } from '../types';
 
 interface DashboardProps {
   players: Player[];
   matches: Match[];
+  onViewChange: (view: ViewType) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
+const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange }) => {
   const upcomingMatches = matches.filter(m => !m.isFinished).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const recentResults = matches.filter(m => m.isFinished).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
@@ -37,6 +38,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
           icon={<Users size={24} />} 
           color="blue"
           trend="+2 esta semana"
+          onClick={() => onViewChange('PLAYERS')}
         />
         <StatCard 
           title="Gols na Temporada" 
@@ -44,6 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
           icon={<Trophy size={24} />} 
           color="yellow"
           trend="Média 2.4/jogo"
+          onClick={() => onViewChange('STATS')}
         />
         <StatCard 
           title="Partidas Oficiais" 
@@ -51,6 +54,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
           icon={<Calendar size={24} />} 
           color="green"
           trend="85% aproveitamento"
+          onClick={() => onViewChange('MATCHES')}
         />
         <StatCard 
           title="Alertas Docs" 
@@ -58,6 +62,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
           icon={<AlertCircle size={24} />} 
           color="red"
           trend="Ação necessária"
+          onClick={() => onViewChange('DOCUMENTS')}
         />
       </div>
 
@@ -86,7 +91,10 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
                   <span className="text-sm font-medium">{nextMatch?.venue || 'Local não definido'}</span>
                 </div>
               </div>
-              <button className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-blue-900/40 hover:scale-105 active:scale-95 flex items-center justify-center md:inline-flex space-x-2">
+              <button 
+                onClick={() => onViewChange('PLAYERS')}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-bold transition-all shadow-xl shadow-blue-900/40 hover:scale-105 active:scale-95 flex items-center justify-center md:inline-flex space-x-2"
+              >
                 <span>Preparar Elenco</span>
                 <ArrowRight size={18} />
               </button>
@@ -105,11 +113,20 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 p-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Últimos Resultados</h2>
-            <button className="text-blue-600 font-bold text-xs hover:underline">Ver todos</button>
+            <button 
+              onClick={() => onViewChange('MATCHES')}
+              className="text-blue-600 font-bold text-xs hover:underline"
+            >
+              Ver todos
+            </button>
           </div>
           <div className="space-y-4">
             {recentResults.slice(0, 4).map(match => (
-              <div key={match.id} className="group p-4 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all cursor-pointer">
+              <div 
+                key={match.id} 
+                onClick={() => onViewChange('MATCHES')}
+                className="group p-4 rounded-2xl border border-transparent hover:border-slate-100 hover:bg-slate-50 transition-all cursor-pointer"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-black ${
@@ -143,7 +160,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches }) => {
   );
 };
 
-const StatCard = ({ title, value, icon, color, trend }: { title: string, value: number | string, icon: React.ReactNode, color: 'blue' | 'yellow' | 'green' | 'red', trend: string }) => {
+const StatCard = ({ title, value, icon, color, trend, onClick }: { title: string, value: number | string, icon: React.ReactNode, color: 'blue' | 'yellow' | 'green' | 'red', trend: string, onClick?: () => void }) => {
   const colors = {
     blue: 'bg-blue-50 text-blue-600 border-blue-100',
     yellow: 'bg-yellow-50 text-yellow-600 border-yellow-100',
@@ -152,9 +169,12 @@ const StatCard = ({ title, value, icon, color, trend }: { title: string, value: 
   };
 
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+    <button 
+      onClick={onClick}
+      className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left w-full group"
+    >
       <div className="flex justify-between items-start mb-4">
-        <div className={`p-3 rounded-2xl ${colors[color]} border`}>
+        <div className={`p-3 rounded-2xl ${colors[color]} border group-hover:scale-110 transition-transform`}>
           {icon}
         </div>
         <div className="bg-slate-50 px-2 py-1 rounded-lg">
@@ -166,7 +186,7 @@ const StatCard = ({ title, value, icon, color, trend }: { title: string, value: 
         <p className="text-3xl font-black text-slate-900 mb-2">{value}</p>
         <p className="text-[10px] font-semibold text-slate-500">{trend}</p>
       </div>
-    </div>
+    </button>
   );
 };
 

@@ -1,25 +1,14 @@
+// DO add comment above each fix.
+// Fixed: Using the correct initialization pattern and strictly relying on process.env.API_KEY.
+// Fixed: Moving role-playing instructions to systemInstruction and defining a responseSchema for JSON output.
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Match, Player, Modality, TeamGender } from "../types.ts";
 
-/**
- * Função auxiliar para obter a chave de API de forma segura em navegadores
- * contornando possíveis substituições de bundlers em tempo de build.
- */
-const getApiKey = (): string => {
-  // Tenta process.env (padrão Node/Bundlers)
-  try {
-    if (process.env.API_KEY) return process.env.API_KEY;
-  } catch (e) {}
-
-  // Tenta window.process.env (Fallback para nosso polyfill no index.html)
-  try {
-    const winProcess = (window as any).process;
-    if (winProcess?.env?.API_KEY) return winProcess.env.API_KEY;
-  } catch (e) {}
-
-  return "";
-};
+export interface AIResponse {
+  caption: string;
+  headline: string;
+}
 
 export const generateMatchPreview = async (
   match: Match, 
@@ -27,54 +16,57 @@ export const generateMatchPreview = async (
   modality: Modality, 
   gender: TeamGender,
   highlightedPlayers: Player[]
-): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("API Key não configurada. Por favor, adicione sua chave Gemini no index.html ou variável de ambiente.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+): Promise<AIResponse> => {
+  // Always use a named parameter and obtain API key exclusively from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const seasonTopScorer = [...squad].sort((a, b) => b.stats.goals - a.stats.goals)[0];
-    const seasonTopAssistant = [...squad].sort((a, b) => b.stats.assists - a.stats.assists)[0];
-
-    const highlightsText = highlightedPlayers.length > 0 
-      ? `OS PROTAGONISTAS DESTA ARTE: ${highlightedPlayers.map(p => `${p.name} (Camisa ${p.number})`).join(', ')}.`
-      : '';
-
-    const modalityLingo = modality === Modality.FUTSAL ? "quadra, 40x20, ala/pivô" : 
-                         modality === Modality.FUT7 ? "society, gramado sintético, Fut7" : 
-                         "campo, 90 minutos, gramado";
+    
+    // Constrói contexto dos jogadores destacados
+    const playerStatsContext = highlightedPlayers.map(p => 
+      `${p.name} (#${p.number}): ${p.stats.goals} gols e ${p.stats.assists} assistências na temporada.`
+    ).join(' | ');
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Você é um Social Media Manager de um clube profissional de elite. Escreva uma legenda IMPACTANTE e VIRAL para o Instagram/X sobre o próximo jogo.
-
-DADOS DO TIME:
-- Clube: Nosso Time (${gender} - ${modality})
-- Próximo Desafio: Contra ${match.opponent}
-- Local/Data: ${match.venue} às ${match.time} em ${match.date}
-
-ESTATÍSTICAS PARA INCLUIR (Seja criativo ao citar):
-- Nosso matador na temporada: ${seasonTopScorer?.name || 'O elenco'} com ${seasonTopScorer?.stats.goals || 0} gols.
-- Mestre das assistências: ${seasonTopAssistant?.name || 'O time'} servindo a galera.
-
-DESTAQUES DA ARTE:
-${highlightsText}
-
-REGRAS DE OURO:
-1. Use terminologia de ${modality} (${modalityLingo}).
-2. Se houver protagonists (destaques), fale que eles estão prontos para o combate.
-3. Crie um senso de URGÊNCIA e CONVOCAÇÃO para a torcida.
-4. Use emojis que combinem com a energia do esporte.
-5. Máximo 280 caracteres. Termine com uma pergunta para engajamento.`
+      contents: `CONTEXTO: Pré-jogo de ${modality} (${gender}) contra ${match.opponent}.
+      DESTAQUES DA ARTE: ${playerStatsContext}
+      ARTILHEIRO DO TIME: ${seasonTopScorer?.name} (${seasonTopScorer?.stats.goals} gols).`,
+      config: {
+        systemInstruction: `Você é um Social Media de um clube de elite. 
+        TAREFA: Gere dois textos (caption e headline) em português brasileiro.
+        1. caption: Legenda viral para Instagram (máx 280 chars) com emojis e convocação da torcida.
+        2. headline: Um título CURTO e IMPACTANTE para o banner visual (máx 45 chars), citando o poder dos destaques ou a importância do jogo.
+        
+        IMPORTANTE: Use terminologia de ${modality}.`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            caption: {
+              type: Type.STRING,
+              description: "Legenda viral para Instagram.",
+            },
+            headline: {
+              type: Type.STRING,
+              description: "Título curto e impactante para o banner.",
+            },
+          },
+          required: ["caption", "headline"],
+        },
+      },
     });
     
-    return response.text || "Dia de decisão! O manto está pronto e nossa história continua em campo.";
+    // Correct text extraction: response.text is a property, not a method.
+    const result = JSON.parse(response.text || '{"caption": "", "headline": ""}');
+    return {
+      caption: result.caption || "Dia de decisão! O manto está pronto.",
+      headline: result.headline || "RUMO À VITÓRIA"
+    };
   } catch (error) {
     console.error("Gemini Preview Error:", error);
-    return "A bola vai rolar! Contamos com a sua torcida no próximo confronto.";
+    return { caption: "A bola vai rolar!", headline: "MATCHDAY" };
   }
 };
 
@@ -84,55 +76,55 @@ export const generateMatchSummary = async (
   modality: Modality,
   gender: TeamGender,
   highlightedPlayers: Player[]
-): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("API Key não configurada.");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
+): Promise<AIResponse> => {
+  // Always use a named parameter and obtain API key exclusively from process.env.API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const goals = match.events.filter(e => e.type === 'GOAL');
-    const resultDescription = match.scoreHome > match.scoreAway ? "UMA VITÓRIA GIGANTE" : 
-                             match.scoreHome < match.scoreAway ? "LUTAMOS ATÉ O FIM" : "TUDO IGUAL";
-
-    const goalsText = goals.length > 0 
-      ? `RELATÓRIO DE GOLS: ${goals.map(g => {
-          const p = players.find(player => player.id === g.playerId);
-          return `${p?.name || 'Atleta'} aos ${g.minute}'`;
-        }).join(', ')}.`
-      : 'Partida sem gols.';
-
-    const highlightsText = highlightedPlayers.length > 0 
-      ? `DESTAQUE PARA: ${highlightedPlayers.map(p => p.name).join(' e ')} que brilharam na arte do resultado.`
-      : '';
+    const goalsDetail = goals.map(g => {
+      const p = players.find(player => player.id === g.playerId);
+      return `${p?.name || 'Atleta'} (Gol aos ${g.minute}')`;
+    }).join(', ');
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Você é um cronista esportivo moderno. Escreva um boletim de encerramento de partida ÉPICO para redes sociais.
+      contents: `PLACAR: Nosso Clube ${match.scoreHome} x ${match.scoreAway} ${match.opponent}.
+      EVENTOS: ${goalsDetail}.
+      DESTAQUES SELECIONADOS: ${highlightedPlayers.map(p => p.name).join(', ')}.`,
+      config: {
+        systemInstruction: `Você é um cronista esportivo. 
+        TAREFA: Gere dois textos (caption e headline) em português brasileiro.
+        1. caption: Texto épico de encerramento (máx 300 chars) exaltando os autores dos gols ou a luta do time.
+        2. headline: Título de placar para o banner (máx 45 chars). Ex: "VITÓRIA GIGANTE EM CASA" ou "RESULTADO FINAL".
 
-PLACAAR FINAL:
-Nosso Clube ${match.scoreHome} x ${match.scoreAway} ${match.opponent}
-Veredito: ${resultDescription}
-
-ACONTECIMENTOS:
-${goalsText}
-${highlightsText}
-
-CONTEXTO: ${modality} (${gender})
-
-INSTRUÇÕES:
-1. Se vencemos, exalte a força do grupo e a liderança técnica.
-2. Se empatamos/perdemos, fale com honra sobre o suor derramado e o foco no próximo treino.
-3. Cite os autores dos gols como heróis da jornada.
-4. Use um tom de "notícia urgente" e "orgulho pelo escudo".
-5. Máximo 300 caracteres com emojis. Use hashtags como #Resiliencia #NossoClube.`
+        Contexto: ${modality} (${gender}).`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            caption: {
+              type: Type.STRING,
+              description: "Texto épico de encerramento.",
+            },
+            headline: {
+              type: Type.STRING,
+              description: "Título de placar final.",
+            },
+          },
+          required: ["caption", "headline"],
+        },
+      },
     });
     
-    return response.text || "Fim de jogo. Honramos as cores do time até o último apito.";
+    // Correct text extraction: response.text is a property, not a method.
+    const result = JSON.parse(response.text || '{"caption": "", "headline": ""}');
+    return {
+      caption: result.caption || "Fim de jogo. Honramos as cores do time.",
+      headline: result.headline || (match.scoreHome > match.scoreAway ? "VITÓRIA!" : "FIM DE JOGO")
+    };
   } catch (error) {
     console.error("Gemini Summary Error:", error);
-    return "Partida encerrada. Agradecemos o apoio de cada torcedor que esteve conosco.";
+    return { caption: "Partida encerrada.", headline: "RESULTADO FINAL" };
   }
 };

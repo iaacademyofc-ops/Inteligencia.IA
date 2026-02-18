@@ -9,85 +9,7 @@ import Documents from './views/Documents.tsx';
 import OfficialNumbers from './views/OfficialNumbers.tsx';
 import AthletePortal from './views/AthletePortal.tsx';
 import Settings from './views/Settings.tsx';
-import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender } from './types.ts';
-
-const INITIAL_PLAYERS: Player[] = [
-  { 
-    id: '1', 
-    name: 'Ricardo Santos', 
-    number: 10, 
-    position: PlayerPosition.MIDFIELDER, 
-    birthDate: '15/05/1998', 
-    gender: TeamGender.MALE,
-    documents: [
-      { id: 'd1', type: 'Ficha de Atleta', status: DocumentStatus.VALID, issueDate: '2022-01-01', expiryDate: '2025-12-31', documentNumber: 'FA-2022-001' },
-      { id: 'd2', type: 'Comprovante de Residência', status: DocumentStatus.EXPIRED, issueDate: '2023-01-10', expiryDate: '2024-01-10', documentNumber: 'RES-9982' }
-    ], 
-    stats: { goals: 5, assists: 8, matches: 12 },
-    achievements: [
-      { id: 'a1', title: 'Campeão Estadual', year: '2023', competition: 'Campeonato Paulista', type: 'COLLECTIVE' },
-      { id: 'a2', title: 'Melhor Meia', year: '2023', competition: 'Copa Regional', type: 'INDIVIDUAL' }
-    ]
-  },
-  { 
-    id: '2', 
-    name: 'Thiago Silva', 
-    number: 4, 
-    position: PlayerPosition.DEFENDER, 
-    birthDate: '22/09/1994', 
-    gender: TeamGender.MALE,
-    documents: [
-      { id: 'd3', type: 'RG ou CNH', status: DocumentStatus.VALID, issueDate: '2010-05-20', expiryDate: '2030-05-20', documentNumber: '12.345.678-9' },
-      { id: 'd4', type: 'CPF', status: DocumentStatus.PENDING, documentNumber: '000.111.222-33' }
-    ], 
-    stats: { goals: 1, assists: 0, matches: 14 },
-    achievements: [
-      { id: 'a3', title: 'Campeão da Copa', year: '2022', competition: 'Copa do Brasil', type: 'COLLECTIVE' }
-    ]
-  },
-  { 
-    id: 'w1', 
-    name: 'Marta Oliveira', 
-    number: 10, 
-    position: PlayerPosition.FORWARD, 
-    birthDate: '19/02/1986', 
-    gender: TeamGender.FEMALE,
-    documents: [
-      { id: 'd5', type: 'Ficha de Atleta', status: DocumentStatus.VALID, issueDate: '2023-01-01', expiryDate: '2025-12-31', documentNumber: 'FA-FEM-001' }
-    ], 
-    stats: { goals: 15, assists: 10, matches: 20 },
-    achievements: [
-      { id: 'a4', title: 'Chuteira de Ouro', year: '2023', competition: 'Torneio Internacional', type: 'INDIVIDUAL' },
-      { id: 'a5', title: 'Campeã Nacional', year: '2023', competition: 'Brasileirão Feminino', type: 'COLLECTIVE' }
-    ]
-  },
-  { 
-    id: 'y1', 
-    name: 'Enzo Junior', 
-    number: 7, 
-    position: PlayerPosition.ALA_D, 
-    birthDate: '10/08/2009', 
-    gender: TeamGender.YOUTH,
-    documents: [
-      { id: 'dy1', type: 'Autorização Pais', status: DocumentStatus.VALID, issueDate: '2024-01-10', expiryDate: '2025-01-10', documentNumber: 'AUT-001' }
-    ], 
-    stats: { goals: 8, assists: 4, matches: 10 },
-    achievements: [
-      { id: 'ay1', title: 'Destaque Sub-15', year: '2024', competition: 'Copa Futuro', type: 'INDIVIDUAL' }
-    ]
-  },
-  { 
-    id: 'f7_1', 
-    name: 'Felipe Fut7', 
-    number: 9, 
-    position: PlayerPosition.FORWARD, 
-    birthDate: '05/03/1996', 
-    gender: TeamGender.MALE,
-    documents: [], 
-    stats: { goals: 12, assists: 5, matches: 8 },
-    achievements: []
-  },
-];
+import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender, TeamDocument } from './types.ts';
 
 const INITIAL_MATCHES: Match[] = [
   { id: 'm1', opponent: 'Flamengo', date: '2024-06-15', time: '16:00', venue: 'Maracanã', type: MatchType.OFFICIAL, gender: TeamGender.MALE, scoreHome: 0, scoreAway: 0, events: [], isFinished: false, modality: Modality.FOOTBALL },
@@ -111,35 +33,112 @@ const App: React.FC = () => {
     ]
   });
   
-  const [players] = useState<Player[]>(INITIAL_PLAYERS);
-  const [staff] = useState<Staff[]>([]);
-  const [matches] = useState<Match[]>(INITIAL_MATCHES);
+  // Garantindo que as listas iniciem vazias como solicitado
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
 
   // Filtros Globais
   const filteredPlayers = players.filter(p => p.gender === gender);
   const filteredMatches = matches.filter(m => m.gender === gender && m.modality === modality);
   const filteredStaff = staff.filter(s => s.gender === gender);
 
+  const handleAddPlayer = (newPlayer: Player) => {
+    setPlayers(prev => [...prev, newPlayer]);
+  };
+
+  const handleAddStaff = (newStaff: Staff) => {
+    setStaff(prev => [...prev, newStaff]);
+  };
+
+  const handleDeletePlayer = (id: string) => {
+    setPlayers(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleDeleteStaff = (id: string) => {
+    setStaff(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleAddMatch = (newMatch: Match) => {
+    setMatches(prev => [...prev, newMatch]);
+  };
+
+  const handleUpdateMatch = (updatedMatch: Match) => {
+    setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+  };
+
+  const handleAddDocument = (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => {
+    if (ownerType === 'Atleta') {
+      setPlayers(prev => prev.map(p => p.id === ownerId ? { ...p, documents: [...p.documents, document] } : p));
+    } else {
+      setStaff(prev => prev.map(s => s.id === ownerId ? { ...s, documents: [...s.documents, document] } : s));
+    }
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'DASHBOARD':
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} />;
       case 'PLAYERS':
-        return <Roster type="PLAYERS" players={filteredPlayers} staff={[]} modality={modality} currentGender={gender} />;
+        return (
+          <Roster 
+            type="PLAYERS" 
+            players={filteredPlayers} 
+            staff={[]} 
+            matches={filteredMatches}
+            modality={modality} 
+            currentGender={gender} 
+            onAddPlayer={handleAddPlayer}
+            onDeletePlayer={handleDeletePlayer}
+          />
+        );
       case 'OFFICIAL_NUMBERS':
         return <OfficialNumbers players={filteredPlayers} modality={modality} />;
       case 'STAFF':
-        return <Roster type="STAFF" players={[]} staff={filteredStaff} modality={modality} currentGender={gender} />;
+        return (
+          <Roster 
+            type="STAFF" 
+            players={[]} 
+            staff={filteredStaff} 
+            matches={filteredMatches}
+            modality={modality} 
+            currentGender={gender} 
+            onAddStaff={handleAddStaff}
+            onDeleteStaff={handleDeleteStaff}
+          />
+        );
       case 'MATCHES':
-        return <Matches matches={filteredMatches} />;
+        return (
+          <Matches 
+            matches={filteredMatches} 
+            onAddMatch={handleAddMatch}
+            onUpdateMatch={handleUpdateMatch}
+            players={filteredPlayers}
+            currentModality={modality}
+            currentGender={gender}
+          />
+        );
       case 'BANNERS':
         return <Banners matches={filteredMatches} players={filteredPlayers} modality={modality} theme={theme} gender={gender} />;
       case 'DOCUMENTS':
-        return <Documents players={filteredPlayers} staff={filteredStaff} />;
+        return (
+          <Documents 
+            players={filteredPlayers} 
+            staff={filteredStaff} 
+            onAddDocument={handleAddDocument}
+          />
+        );
       case 'SETTINGS':
         return <Settings theme={theme} onThemeChange={setTheme} />;
       case 'ATHLETE_PORTAL':
-        return <AthletePortal players={filteredPlayers} matches={filteredMatches} onExit={() => setCurrentView('DASHBOARD')} />;
+        return (
+          <AthletePortal 
+            players={filteredPlayers} 
+            matches={filteredMatches} 
+            onAddDocument={handleAddDocument}
+            onExit={() => setCurrentView('DASHBOARD')} 
+          />
+        );
       case 'STATS':
         return (
           <div className="space-y-6">
@@ -154,14 +153,14 @@ const App: React.FC = () => {
                       <span className="font-bold dynamic-text-primary">{p.stats.goals} Gols</span>
                     </div>
                   ))}
-                  {filteredPlayers.length === 0 && <p className="text-slate-400 italic text-sm">Sem dados registrados.</p>}
+                  {filteredPlayers.length === 0 && <p className="text-slate-400 italic text-sm">Nenhum dado registrado.</p>}
                 </div>
               </div>
             </div>
           </div>
         );
       default:
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} />;
     }
   };
 

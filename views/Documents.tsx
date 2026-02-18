@@ -2,9 +2,6 @@
 import React, { useState, useRef } from 'react';
 import { 
   Search, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
   FileText, 
   X, 
   Eye, 
@@ -12,20 +9,19 @@ import {
   Plus,
   Fingerprint,
   Home,
-  ClipboardList,
   CreditCard,
   Vote,
   FileUp,
-  Hash,
-  CalendarDays,
   ExternalLink,
-  Check
+  Check,
+  Upload
 } from 'lucide-react';
 import { Player, Staff, TeamDocument, DocumentStatus } from '../types';
 
 interface DocumentsProps {
   players: Player[];
   staff: Staff[];
+  onAddDocument?: (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => void;
 }
 
 interface FlattenedDocument extends TeamDocument {
@@ -34,19 +30,22 @@ interface FlattenedDocument extends TeamDocument {
 }
 
 const DOCUMENT_TYPES = [
-  { id: 'TITULO', label: 'Título de Eleitor', icon: Vote, color: 'text-purple-600', bg: 'bg-purple-50' },
   { id: 'RG_CNH', label: 'RG ou CNH', icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50' },
   { id: 'CPF', label: 'CPF', icon: Fingerprint, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { id: 'FICHA', label: 'Ficha de Atleta', icon: ClipboardList, color: 'text-orange-600', bg: 'bg-orange-50' },
+  { id: 'TITULO', label: 'Título de Eleitor', icon: Vote, color: 'text-purple-600', bg: 'bg-purple-50' },
   { id: 'RESIDENCIA', label: 'Comprovante de Residência', icon: Home, color: 'text-emerald-600', bg: 'bg-emerald-50' },
 ];
 
-const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
+const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<'ALL' | DocumentStatus>('ALL');
   const [selectedDoc, setSelectedDoc] = useState<FlattenedDocument | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [preselectedType, setPreselectedType] = useState<string>('');
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  
+  // Form states
+  const [formAssociateId, setFormAssociateId] = useState<string>('');
+  const [formDocType, setFormDocType] = useState<string>('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allDocuments: FlattenedDocument[] = [
@@ -55,28 +54,56 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
   ];
 
   const filteredDocs = allDocuments.filter(doc => {
-    const matchesSearch = doc.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          doc.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || doc.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return doc.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+           doc.type.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const getStatusBadge = (status: DocumentStatus) => {
-    switch (status) {
-      case DocumentStatus.VALID:
-        return <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20"><CheckCircle size={12} className="mr-1.5" /> Válido</span>;
-      case DocumentStatus.PENDING:
-        return <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"><Clock size={12} className="mr-1.5" /> Pendente</span>;
-      case DocumentStatus.EXPIRED:
-        return <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20"><AlertTriangle size={12} className="mr-1.5" /> Expirado</span>;
-      default: return null;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFileName(file.name);
     }
+  };
+
+  const openFileSelector = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleQuickUpload = (typeId: string) => {
+    const typeLabel = DOCUMENT_TYPES.find(t => t.id === typeId)?.label || '';
+    setFormDocType(typeLabel);
+    setFormAssociateId('');
+    setSelectedFileName(null);
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formAssociateId || !formDocType || !selectedFileName || !onAddDocument) return;
+
+    const isPlayer = players.some(p => p.id === formAssociateId);
+    const ownerType = isPlayer ? 'Atleta' : 'Comissão';
+
+    const newDoc: TeamDocument = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: formDocType,
+      status: DocumentStatus.PENDING, // Mantido internamente mas oculto na UI
+      issueDate: new Date().toISOString().split('T')[0],
+      documentNumber: 'DOC-' + Math.floor(Math.random() * 10000)
+    };
+
+    onAddDocument(formAssociateId, ownerType, newDoc);
+    
+    setShowAddModal(false);
+    setSelectedFileName(null);
+    setFormAssociateId('');
+    setFormDocType('');
   };
 
   const formatDate = (dateString?: string) => dateString ? new Date(dateString).toLocaleDateString('pt-BR') : 'N/A';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Central de Documentos</h2>
@@ -94,13 +121,41 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
             />
           </div>
           <button 
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setFormDocType('');
+              setFormAssociateId('');
+              setSelectedFileName(null);
+              setShowAddModal(true);
+            }}
             className="flex items-center space-x-2 bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
           >
             <Plus size={20} />
             <span>Novo</span>
           </button>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {DOCUMENT_TYPES.map((type) => (
+          <div 
+            key={type.id} 
+            className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center text-center group hover:shadow-md transition-all"
+          >
+            <div className={`p-3 rounded-2xl ${type.bg} ${type.color} mb-3 group-hover:scale-110 transition-transform`}>
+              <type.icon size={20} />
+            </div>
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-tight leading-none mb-4 min-h-[20px] flex items-center justify-center">
+              {type.label}
+            </p>
+            <button 
+              onClick={() => handleQuickUpload(type.id)}
+              className="w-full flex items-center justify-center space-x-2 bg-slate-900 text-white py-2 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors"
+            >
+              <Upload size={12} />
+              <span>Enviar</span>
+            </button>
+          </div>
+        ))}
       </div>
 
       <div className="bg-[#020617] rounded-[2.5rem] shadow-2xl border border-slate-800/60 overflow-hidden">
@@ -110,7 +165,6 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
               <tr className="bg-slate-900/50 border-b border-slate-800">
                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Associado</th>
                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Documento</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Status</th>
                 <th className="px-8 py-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 text-right">Ações</th>
               </tr>
             </thead>
@@ -139,9 +193,6 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-8 py-6">
-                    {getStatusBadge(doc.status)}
-                  </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex justify-end items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
@@ -159,7 +210,7 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
               ))}
               {filteredDocs.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-8 py-12 text-center text-slate-600 italic text-sm">Nenhum registro encontrado.</td>
+                  <td colSpan={3} className="px-8 py-12 text-center text-slate-600 italic text-sm">Nenhum registro encontrado.</td>
                 </tr>
               )}
             </tbody>
@@ -167,7 +218,6 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
         </div>
       </div>
 
-      {/* Add Document Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden border border-white/20">
@@ -178,33 +228,72 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
               </div>
               <button onClick={() => setShowAddModal(false)} className="p-2 bg-white/10 rounded-xl hover:bg-white/20"><X size={20} /></button>
             </div>
-            <form className="p-8 space-y-5" onSubmit={(e) => { e.preventDefault(); setShowAddModal(false); }}>
+            <form className="p-8 space-y-5" onSubmit={handleSubmit}>
                <div className="space-y-4">
                   <div className="space-y-1">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Associado</label>
-                     <select className="w-full bg-slate-50 border-none rounded-2xl py-3 px-5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20">
+                     <select 
+                        value={formAssociateId}
+                        onChange={(e) => setFormAssociateId(e.target.value)}
+                        className="w-full bg-slate-50 border-none rounded-2xl py-3 px-5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20" 
+                        required
+                      >
                         <option value="">Selecione um membro...</option>
-                        {players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        {players.map(p => <option key={p.id} value={p.id}>{p.name} (Atleta)</option>)}
+                        {staff.map(s => <option key={s.id} value={s.id}>{s.name} (Comissão)</option>)}
                      </select>
                   </div>
                   <div className="space-y-1">
                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipo de Documento</label>
-                     <select className="w-full bg-slate-50 border-none rounded-2xl py-3 px-5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20">
-                        {DOCUMENT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                     <select 
+                      className="w-full bg-slate-50 border-none rounded-2xl py-3 px-5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500/20" 
+                      required
+                      value={formDocType}
+                      onChange={(e) => setFormDocType(e.target.value)}
+                    >
+                        <option value="">Selecione o tipo...</option>
+                        {DOCUMENT_TYPES.map(t => <option key={t.id} value={t.label}>{t.label}</option>)}
                      </select>
                   </div>
-                  <div className="p-8 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors">
-                     <FileUp size={32} className="text-slate-300 mb-2" />
-                     <p className="text-xs font-bold text-slate-500">Clique para selecionar o PDF/Imagem</p>
+
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    onChange={handleFileChange} 
+                    accept="image/*,.pdf"
+                  />
+
+                  <div 
+                    onClick={openFileSelector}
+                    className={`p-8 border-2 border-dashed rounded-[2rem] flex flex-col items-center justify-center cursor-pointer transition-all ${selectedFileName ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                  >
+                     {selectedFileName ? (
+                       <div className="text-center">
+                          <Check size={32} className="text-blue-600 mb-2 mx-auto" />
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest truncate max-w-[200px]">{selectedFileName}</p>
+                          <p className="text-[9px] font-bold text-blue-400 mt-1">Clique para trocar</p>
+                       </div>
+                     ) : (
+                       <>
+                          <FileUp size={32} className="text-slate-300 mb-2" />
+                          <p className="text-xs font-bold text-slate-500">Clique para selecionar o PDF/Imagem</p>
+                       </>
+                     )}
                   </div>
                </div>
-               <button className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all">Salvar no Sistema</button>
+               <button 
+                type="submit"
+                disabled={!selectedFileName || !formAssociateId || !formDocType}
+                className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                Salvar no Sistema
+               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Detail Modal */}
       {selectedDoc && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-200">
            <div className="bg-white rounded-[3rem] shadow-2xl max-w-xl w-full overflow-hidden">
@@ -229,10 +318,10 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff }) => {
                  </div>
                  <div className="col-span-2 p-6 bg-blue-50 border border-blue-100 rounded-3xl flex items-center justify-between">
                     <div>
-                       <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Status de Auditoria</p>
-                       <p className="text-lg font-black text-blue-900">{selectedDoc.status === DocumentStatus.VALID ? 'Documento em Vigor' : 'Atenção Necessária'}</p>
+                       <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">Arquivo Digitalizado</p>
+                       <p className="text-lg font-black text-blue-900">Documento pronto para visualização</p>
                     </div>
-                    {getStatusBadge(selectedDoc.status)}
+                    <FileText className="text-blue-400" size={32} />
                  </div>
               </div>
               <div className="p-8 border-t flex space-x-3">

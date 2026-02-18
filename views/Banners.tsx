@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Download, 
@@ -10,15 +9,17 @@ import {
   User,
   Zap,
   Target,
-  Edit3,
   CheckCircle2,
   Copy,
-  ChevronRight,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Layout as LayoutIcon,
+  Palette,
+  Users2,
+  Flame
 } from 'lucide-react';
 import { Match, Player, Modality, TeamTheme, TeamGender } from '../types';
-import { generateMatchPreview, generateMatchSummary } from '../services/geminiService';
+import { generateMatchPreview, generateMatchSummary, AIResponse } from '../services/geminiService';
 import { toPng } from 'https://esm.sh/html-to-image';
 
 interface BannersProps {
@@ -29,16 +30,18 @@ interface BannersProps {
   gender: TeamGender;
 }
 
-type BannerLayout = 'SCORER' | 'SCORE_FOCUS' | 'MINIMALIST';
+type BannerLayout = 'SCORER' | 'SCORE_FOCUS' | 'MINIMALIST' | 'SQUAD_LIST' | 'VERSUS_WIDE';
+type BannerStyle = 'CLASSIC' | 'NOIR' | 'STREET';
 
 const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, gender }) => {
   const [selectedMatch, setSelectedMatch] = React.useState<Match | null>(matches[0] || null);
   const [bannerType, setBannerType] = React.useState<'PREVIEW' | 'RESULT'>('PREVIEW');
   const [activeLayout, setActiveLayout] = useState<BannerLayout>('SCORER');
+  const [activeStyle, setActiveStyle] = useState<BannerStyle>('CLASSIC');
   const [highlightedPlayerIds, setHighlightedPlayerIds] = useState<string[]>([]);
   
   // IA States
-  const [draftText, setDraftText] = useState('');
+  const [aiResult, setAiResult] = useState<AIResponse>({ caption: '', headline: '' });
   const [appliedBannerText, setAppliedBannerText] = useState('');
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -53,21 +56,23 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
     
     const highlightedPlayersList = players.filter(p => highlightedPlayerIds.includes(p.id));
     
-    let text = "";
-    if (bannerType === 'PREVIEW') {
-      text = await generateMatchPreview(selectedMatch, players, modality, gender, highlightedPlayersList);
-    } else {
-      text = await generateMatchSummary(selectedMatch, players, modality, gender, highlightedPlayersList);
+    try {
+      let result: AIResponse;
+      if (bannerType === 'PREVIEW') {
+        result = await generateMatchPreview(selectedMatch, players, modality, gender, highlightedPlayersList);
+      } else {
+        result = await generateMatchSummary(selectedMatch, players, modality, gender, highlightedPlayersList);
+      }
+      setAiResult(result);
+    } catch (err) {
+      alert("Erro ao consultar IA. Verifique sua chave.");
+    } finally {
+      setLoading(false);
     }
-    
-    setDraftText(text);
-    setLoading(false);
   };
 
   const applyToBanner = () => {
-    // Extrai uma frase curta para o banner ou usa as primeiras 40 letras
-    const shortText = draftText.length > 50 ? draftText.substring(0, 47) + "..." : draftText;
-    setAppliedBannerText(shortText);
+    setAppliedBannerText(aiResult.headline);
   };
 
   const handleDownload = async () => {
@@ -78,7 +83,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
       const dataUrl = await toPng(bannerRef.current, {
         cacheBust: true,
         pixelRatio: 4, 
-        backgroundColor: theme.secondary,
+        backgroundColor: activeStyle === 'NOIR' ? '#000000' : theme.secondary,
         style: { borderRadius: '0' }
       });
       const fileName = `banner-${activeLayout.toLowerCase()}-${selectedMatch?.opponent.replace(/\s+/g, '-').toLowerCase() || 'jogo'}.png`;
@@ -97,7 +102,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
   const togglePlayerHighlight = (playerId: string) => {
     setHighlightedPlayerIds(prev => {
       if (prev.includes(playerId)) return prev.filter(id => id !== playerId);
-      if (prev.length < 3) return [...prev, playerId];
+      if (prev.length < (activeLayout === 'SQUAD_LIST' ? 6 : 3)) return [...prev, playerId];
       return prev;
     });
   };
@@ -106,48 +111,70 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
   const highlightedPlayers = players.filter(p => highlightedPlayerIds.includes(p.id));
   const getCrestUrl = (name: string) => `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name)}&backgroundColor=ffffff,f8fafc&padding=10`;
 
-  const isDark = (color: string) => {
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return (r * 299 + g * 587 + b * 114) / 1000 < 155;
+  const getBannerBackground = () => {
+    if (activeStyle === 'NOIR') return 'bg-black';
+    if (activeStyle === 'STREET') return 'bg-slate-900';
+    return `linear-gradient(160deg, ${theme.secondary} 0%, ${theme.primary} 100%)`;
   };
 
-  const textClass = isDark(theme.primary) ? 'text-white' : 'text-slate-900';
-  const accentBorderClass = isDark(theme.primary) ? 'border-white/20' : 'border-slate-900/10';
+  const getTextStyle = () => {
+    if (activeStyle === 'NOIR') return 'text-white';
+    if (activeStyle === 'STREET') return 'text-white';
+    return 'text-white'; // Classic default
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Gerador de Banners</h2>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Marketing Esportivo & IA</p>
+          <h2 className="text-2xl font-bold text-slate-900">Estúdio de Design</h2>
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1">Crie artes profissionais em segundos</p>
         </div>
         <div className="flex items-center bg-white px-4 py-2 rounded-2xl border shadow-sm space-x-2">
-           <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: theme.primary }}></div>
-           <span className="text-[10px] font-black uppercase text-slate-600">{theme.teamName}</span>
+           <LayoutIcon size={16} className="text-blue-600" />
+           <span className="text-[10px] font-black uppercase text-slate-600">Modo Designer Ativo</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-6">
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-8">
-            {/* Opções de Layout */}
+            {/* Seletor de Estilo Visual */}
             <div>
-              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Escolha o Layout Visual</label>
-              <div className="grid grid-cols-3 gap-4">
-                {(['SCORER', 'SCORE_FOCUS', 'MINIMALIST'] as const).map((layout) => (
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Direção de Arte (Estilo)</label>
+              <div className="grid grid-cols-3 gap-3">
+                {(['CLASSIC', 'NOIR', 'STREET'] as const).map((style) => (
+                  <button 
+                    key={style}
+                    onClick={() => setActiveStyle(style)}
+                    className={`flex items-center justify-center space-x-2 p-3 rounded-2xl border-2 transition-all ${activeStyle === style ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
+                  >
+                    {style === 'CLASSIC' && <Palette size={16} />}
+                    {style === 'NOIR' && <Zap size={16} />}
+                    {style === 'STREET' && <Flame size={16} />}
+                    <span className="text-[10px] font-black uppercase">{style}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Seletor de Layout Estrutural */}
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Estrutura (Layout)</label>
+              <div className="grid grid-cols-5 gap-2">
+                {(['SCORER', 'SCORE_FOCUS', 'MINIMALIST', 'SQUAD_LIST', 'VERSUS_WIDE'] as const).map((layout) => (
                   <button 
                     key={layout}
                     onClick={() => setActiveLayout(layout)}
-                    className={`flex flex-col items-center justify-center p-4 rounded-3xl border-2 transition-all ${activeLayout === layout ? 'border-blue-500 bg-blue-50/50 shadow-lg scale-[1.02]' : 'border-slate-100 bg-slate-50 hover:bg-slate-100'}`}
+                    className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${activeLayout === layout ? 'border-blue-500 bg-blue-50 shadow-sm scale-[1.05]' : 'border-slate-100 bg-slate-50 hover:bg-slate-100'}`}
                   >
-                    {layout === 'SCORER' && <Target size={24} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
-                    {layout === 'SCORE_FOCUS' && <Zap size={24} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
-                    {layout === 'MINIMALIST' && <Minimize2 size={24} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
-                    <span className={`text-[10px] font-black uppercase mt-2 ${activeLayout === layout ? 'text-blue-600' : 'text-slate-500'}`}>
-                      {layout === 'SCORER' ? 'Artilheiro' : layout === 'SCORE_FOCUS' ? 'Placar' : 'Clean'}
+                    {layout === 'SCORER' && <Target size={18} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
+                    {layout === 'SCORE_FOCUS' && <Zap size={18} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
+                    {layout === 'MINIMALIST' && <Minimize2 size={18} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
+                    {layout === 'SQUAD_LIST' && <Users2 size={18} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
+                    {layout === 'VERSUS_WIDE' && <Maximize2 size={18} className={activeLayout === layout ? 'text-blue-600' : 'text-slate-400'} />}
+                    <span className={`text-[8px] font-black uppercase mt-2 text-center leading-tight ${activeLayout === layout ? 'text-blue-600' : 'text-slate-500'}`}>
+                      {layout.replace('_', ' ')}
                     </span>
                   </button>
                 ))}
@@ -180,7 +207,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Destaques (Opcional)</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Destaques (Contexto IA)</label>
                 <div className="flex flex-wrap gap-2">
                   {players.map(player => (
                     <button
@@ -202,144 +229,153 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               style={{ backgroundColor: theme.primary }}
             >
               {loading ? <Loader2 size={24} className="animate-spin" /> : <Sparkles size={24} />}
-              <span>{loading ? "Processando Ideias..." : "Co-criar com IA"}</span>
+              <span>{loading ? "Processando Ideias..." : "Criar Slogan com IA"}</span>
             </button>
           </div>
 
-          {/* ÁREA DE PREVIEW E EDIÇÃO IA (STAGING) */}
+          {/* PAINEL DE EDIÇÃO IA */}
           {isAiPanelOpen && (
-            <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+            <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl animate-in slide-in-from-bottom-4">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-blue-500/20 text-blue-400 rounded-xl"><Edit3 size={18} /></div>
-                  <h4 className="text-white font-black text-sm uppercase tracking-widest">Editor de Conteúdo IA</h4>
+                <div className="flex items-center space-x-3 text-blue-400">
+                  <Sparkles size={18} />
+                  <h4 className="text-white font-black text-sm uppercase tracking-widest">Copywriting Esportivo</h4>
                 </div>
-                <button onClick={() => setIsAiPanelOpen(false)} className="text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+                <button onClick={() => setIsAiPanelOpen(false)} className="text-slate-500 hover:text-white"><X size={20} /></button>
               </div>
 
-              {loading ? (
-                <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                  <Loader2 size={40} className="text-blue-500 animate-spin" />
-                  <p className="text-slate-400 font-bold text-xs uppercase animate-pulse">Consultando o Gemini...</p>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest ml-1">Slogan Principal (Headline)</label>
+                  <input 
+                    type="text" 
+                    value={aiResult.headline}
+                    onChange={(e) => setAiResult({...aiResult, headline: e.target.value})}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-blue-100 font-black italic outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="relative">
-                    <textarea 
-                      value={draftText}
-                      onChange={(e) => setDraftText(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] p-6 text-blue-100 text-sm leading-relaxed font-medium min-h-[150px] outline-none focus:ring-2 focus:ring-blue-500/50 transition-all custom-scrollbar"
-                      placeholder="O texto gerado aparecerá aqui para você revisar..."
-                    />
-                    <div className="absolute top-4 right-4 text-[10px] font-black text-white/20 uppercase tracking-widest">Rascunho</div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                     <button 
                       onClick={applyToBanner}
-                      className="flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                      className="flex items-center justify-center space-x-2 bg-blue-600 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest"
                     >
                       <CheckCircle2 size={18} />
-                      <span>Aplicar no Banner</span>
+                      <span>Usar no Banner</span>
                     </button>
                     <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(draftText);
-                        alert('Legenda copiada para área de transferência!');
-                      }}
-                      className="flex items-center justify-center space-x-2 bg-white/5 hover:bg-white/10 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-white/10 active:scale-95"
+                      onClick={() => { navigator.clipboard.writeText(aiResult.caption); alert('Legenda copiada!'); }}
+                      className="flex items-center justify-center space-x-2 bg-white/5 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest border border-white/10"
                     >
                       <Copy size={18} />
                       <span>Copiar Legenda</span>
                     </button>
-                  </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
 
-        {/* PREVIEW PANEL */}
+        {/* ÁREA DE PREVIEW DINÂMICO */}
         <div className="space-y-6">
           <div 
             ref={bannerRef}
-            className={`aspect-[4/5] rounded-[3.5rem] shadow-2xl relative overflow-hidden flex flex-col ${textClass} p-12 border-[12px] ${accentBorderClass}`}
-            style={{ background: `linear-gradient(160deg, ${theme.secondary} 0%, ${theme.primary} 100%)` }}
+            className={`aspect-[4/5] rounded-[3.5rem] shadow-2xl relative overflow-hidden flex flex-col p-12 border-[12px] border-white/10 ${getTextStyle()}`}
+            style={{ background: getBannerBackground() }}
           >
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+            {/* Texturas Visuais de Estilo */}
+            {activeStyle === 'STREET' && <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/pinstriped-suit.png')] opacity-30 mix-blend-overlay"></div>}
+            {activeStyle === 'NOIR' && <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/concrete-wall.png')] opacity-20 mix-blend-multiply"></div>}
+            {activeStyle === 'CLASSIC' && <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>}
             
             <div className="relative z-10 h-full flex flex-col justify-between">
+              
+              {/* RENDERIZAÇÃO POR LAYOUT */}
               {activeLayout === 'SCORER' && (
                 <>
                   <div className="flex justify-between items-start">
                     <p className="text-2xl font-black italic tracking-tighter">{theme.teamName.toUpperCase()}</p>
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center">
-                       <Shield size={24} />
-                    </div>
+                    <Shield size={32} className="opacity-40" />
                   </div>
-
                   <div className="flex-1 flex flex-col items-center justify-center relative">
                     {appliedBannerText && (
                       <div className="absolute top-0 w-full text-center">
-                        <p className="inline-block bg-blue-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest animate-in fade-in zoom-in">
-                          "{appliedBannerText}"
+                        <p className={`inline-block px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest shadow-xl ${activeStyle === 'STREET' ? 'bg-yellow-50 text-black transform rotate-3' : 'bg-blue-600 text-white'}`}>
+                          {appliedBannerText}
                         </p>
                       </div>
                     )}
-                    <div className="w-56 h-56 bg-white/10 border-4 border-white/20 backdrop-blur-md rounded-[3rem] flex items-center justify-center relative shadow-2xl overflow-hidden mt-8">
-                       <span className="text-[120px] font-black italic opacity-20">#{(highlightedPlayers[0] || topScorer)?.number}</span>
-                       <div className="absolute inset-0 flex items-center justify-center">
-                          <User size={120} className="opacity-10" />
-                       </div>
+                    <div className={`w-64 h-64 rounded-[4rem] flex items-center justify-center relative shadow-2xl overflow-hidden mt-8 ${activeStyle === 'NOIR' ? 'bg-white/5 border border-white/10' : 'bg-white/10 border-4 border-white/20'}`}>
+                       <span className="text-[140px] font-black italic opacity-20">#{(highlightedPlayers[0] || topScorer)?.number}</span>
+                       <div className="absolute inset-0 flex items-center justify-center"><User size={140} className="opacity-10" /></div>
                     </div>
-                    <div className="mt-8 bg-white px-8 py-3 rounded-2xl shadow-2xl transform -rotate-2">
-                       <p className="text-slate-900 font-black text-xl italic whitespace-nowrap">
-                         {(highlightedPlayers[0] || topScorer)?.name.toUpperCase() || 'NOME DO ATLETA'}
+                    <div className={`mt-8 px-8 py-3 rounded-2xl shadow-2xl transform ${activeStyle === 'STREET' ? '-rotate-6 bg-slate-900 border-2 border-white' : 'bg-white'}`}>
+                       <p className={`font-black text-xl italic uppercase ${activeStyle === 'STREET' ? 'text-white' : 'text-slate-900'}`}>
+                         {(highlightedPlayers[0] || topScorer)?.name || 'DESTAQUE'}
                        </p>
                     </div>
-                  </div>
-
-                  <div className="text-center pt-8 border-t border-white/10">
-                    <p className="text-4xl font-black italic tracking-tighter">
-                      {bannerType === 'RESULT' ? `${selectedMatch?.scoreHome} - ${selectedMatch?.scoreAway}` : 'VS ' + selectedMatch?.opponent.toUpperCase()}
-                    </p>
-                    <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.4em] mt-2">{selectedMatch?.date} • {selectedMatch?.venue.toUpperCase()}</p>
                   </div>
                 </>
               )}
 
+              {activeLayout === 'SQUAD_LIST' && (
+                <>
+                  <div className="text-center mb-8">
+                    <h3 className="text-5xl font-black italic tracking-tighter leading-none mb-2">LISTA DE CONVOCADOS</h3>
+                    <p className="text-xs font-bold opacity-50 uppercase tracking-[0.5em]">{selectedMatch?.opponent.toUpperCase()} • {selectedMatch?.date}</p>
+                  </div>
+                  <div className="flex-1 grid grid-cols-2 gap-4 content-center">
+                    {(highlightedPlayers.length > 0 ? highlightedPlayers : players.slice(0, 6)).map((p, i) => (
+                      <div key={i} className={`p-4 rounded-3xl flex items-center space-x-3 ${activeStyle === 'NOIR' ? 'bg-white/5' : 'bg-white/10'} border border-white/10`}>
+                        <span className="text-2xl font-black italic text-blue-400">#{p.number}</span>
+                        <div>
+                          <p className="font-black text-xs uppercase truncate max-w-[100px]">{p.name}</p>
+                          <p className="text-[8px] font-bold opacity-40 uppercase">{p.position}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {activeLayout === 'VERSUS_WIDE' && (
+                <div className="flex-1 flex flex-col justify-center items-center">
+                   <div className="flex items-center space-x-12 mb-12">
+                      <div className="flex flex-col items-center">
+                        <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center p-4 border-4 border-white/20">
+                          <Shield size={60} />
+                        </div>
+                        <p className="mt-4 font-black italic text-sm">{theme.teamName.toUpperCase()}</p>
+                      </div>
+                      <div className={`text-5xl font-black italic ${activeStyle === 'STREET' ? 'text-yellow-500' : 'opacity-30'}`}>VS</div>
+                      <div className="flex flex-col items-center">
+                        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center p-4 border-4 border-slate-200">
+                          <img src={getCrestUrl(selectedMatch?.opponent || 'O')} className="w-full h-full" />
+                        </div>
+                        <p className="mt-4 font-black italic text-sm">{selectedMatch?.opponent.toUpperCase()}</p>
+                      </div>
+                   </div>
+                   {appliedBannerText && (
+                      <p className="text-center text-xl font-black italic tracking-widest bg-white text-slate-900 px-8 py-2 transform skew-x-12">
+                        {appliedBannerText}
+                      </p>
+                   )}
+                </div>
+              )}
+
               {activeLayout === 'SCORE_FOCUS' && (
                 <div className="flex-1 flex flex-col justify-center items-center space-y-12">
-                   <div className="flex items-center space-x-8">
-                      <div className="w-20 h-20 bg-white rounded-3xl p-4 shadow-xl flex items-center justify-center">
-                         <img src={getCrestUrl(selectedMatch?.opponent || 'O')} className="w-full h-full" />
-                      </div>
-                      <span className="text-4xl font-black italic opacity-50">VS</span>
-                      <div className="w-20 h-20 bg-white/10 rounded-3xl p-4 border border-white/20 flex items-center justify-center">
-                         <Shield size={40} />
-                      </div>
-                   </div>
-                   
-                   <div className="flex flex-col items-center">
-                     <div className="text-[140px] font-black italic leading-none tracking-tighter drop-shadow-2xl">
+                   <div className="text-[160px] font-black italic leading-none tracking-tighter drop-shadow-2xl">
                        {bannerType === 'RESULT' ? (
                          <span className="flex items-center space-x-4">
-                           <span>{selectedMatch?.scoreHome}</span>
-                           <span className="text-[60px] opacity-30">/</span>
+                           <span className={activeStyle === 'STREET' ? 'text-yellow-400' : ''}>{selectedMatch?.scoreHome}</span>
+                           <span className="text-[60px] opacity-20">X</span>
                            <span>{selectedMatch?.scoreAway}</span>
                          </span>
-                       ) : '00/00'}
-                     </div>
-                     {appliedBannerText && (
-                       <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] opacity-80 animate-in slide-in-from-bottom-2">
-                         {appliedBannerText}
-                       </p>
-                     )}
+                       ) : 'MATCH'}
                    </div>
-                   
                    <div className="text-center">
-                      <p className="text-3xl font-black italic tracking-tighter">{selectedMatch?.opponent.toUpperCase()}</p>
-                      <p className="text-sm font-bold opacity-60 uppercase tracking-widest mt-2">{selectedMatch?.venue}</p>
+                      <p className="text-4xl font-black italic tracking-tighter">{selectedMatch?.opponent.toUpperCase()}</p>
+                      <p className="text-xs font-bold opacity-40 uppercase tracking-[0.5em] mt-2">{selectedMatch?.venue}</p>
                    </div>
                 </div>
               )}
@@ -347,39 +383,27 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               {activeLayout === 'MINIMALIST' && (
                 <div className="flex-1 flex flex-col border border-white/10 rounded-[3rem] p-12 bg-white/5 backdrop-blur-sm">
                    <div className="flex-1 flex flex-col justify-center items-center text-center">
-                      <p className="text-[10px] font-black uppercase tracking-[0.8em] opacity-40 mb-8 leading-none">Match Report</p>
-                      <h3 className="text-5xl font-black italic tracking-tighter mb-4 leading-tight">{theme.teamName.toUpperCase()}</h3>
-                      {appliedBannerText && (
-                        <p className="text-xs font-medium italic opacity-70 mb-4 max-w-[200px] animate-in fade-in">
-                          "{appliedBannerText}"
-                        </p>
-                      )}
-                      <div className="w-12 h-1 bg-white/20 rounded-full mb-4"></div>
-                      <h4 className="text-2xl font-light opacity-60 uppercase tracking-widest">{selectedMatch?.opponent}</h4>
-                   </div>
-                   
-                   <div className="flex justify-between items-end border-t border-white/10 pt-8">
-                      <div className="text-left">
-                        <p className="text-4xl font-black">{bannerType === 'RESULT' ? selectedMatch?.scoreHome + '-' + selectedMatch?.scoreAway : 'PREVIEW'}</p>
-                        <p className="text-[10px] font-bold uppercase opacity-40">Status</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black">{selectedMatch?.date}</p>
-                        <p className="text-[10px] font-bold uppercase opacity-40">{selectedMatch?.time}</p>
-                      </div>
+                      <h3 className="text-6xl font-black italic tracking-tighter mb-4 leading-none">{theme.teamName.toUpperCase()}</h3>
+                      <p className="text-sm font-black italic opacity-50 mb-8 uppercase tracking-widest">VS {selectedMatch?.opponent}</p>
+                      {appliedBannerText && <p className="text-sm font-black italic bg-blue-600 px-4 py-1 rounded-full">{appliedBannerText}</p>}
                    </div>
                 </div>
               )}
+
+              {/* Rodapé Padrão */}
+              <div className="text-center pt-8 border-t border-white/10">
+                <p className="text-[10px] font-black uppercase opacity-60 tracking-[0.4em]">{selectedMatch?.date} • {selectedMatch?.time} • {selectedMatch?.venue.toUpperCase()}</p>
+              </div>
             </div>
           </div>
           
           <button 
             onClick={handleDownload}
             disabled={downloading}
-            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-5 rounded-[2.2rem] font-black text-sm uppercase tracking-widest shadow-2xl active:scale-95 disabled:opacity-50 group"
+            className="w-full flex items-center justify-center space-x-3 bg-slate-900 text-white py-5 rounded-[2.2rem] font-black text-sm uppercase tracking-widest shadow-2xl active:scale-95 disabled:opacity-50"
           >
-            {downloading ? <Loader2 size={24} className="animate-spin" /> : <ArrowDownToLine size={24} className="group-hover:translate-y-1 transition-transform" />}
-            <span>{downloading ? "Exportando Arte..." : "Baixar Banner"}</span>
+            {downloading ? <Loader2 size={24} className="animate-spin" /> : <ArrowDownToLine size={24} />}
+            <span>{downloading ? "Exportando Arte..." : "Baixar Banner Profissional"}</span>
           </button>
         </div>
       </div>
