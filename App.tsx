@@ -22,23 +22,24 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('DASHBOARD');
   const [modality, setModality] = useState<Modality>(Modality.FOOTBALL);
   const [gender, setGender] = useState<TeamGender>(TeamGender.MALE);
+  
   const [theme, setTheme] = useState<TeamTheme>({
-    primary: '#1e3a8a',
-    secondary: '#0f172a',
-    accent: '#3b82f6',
     teamName: 'TeamMaster Pro',
+    categories: {
+      [TeamGender.MALE]: { primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
+      [TeamGender.FEMALE]: { primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
+      [TeamGender.YOUTH]: { primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
+    },
     clubDocuments: [
       { id: 'cd1', type: 'Estatuto Social', status: DocumentStatus.VALID, issueDate: '2020-01-01', documentNumber: 'EST-2020' },
       { id: 'cd2', type: 'Cartão CNPJ', status: DocumentStatus.VALID, issueDate: '2021-05-15', documentNumber: '12.345.678/0001-99' }
     ]
   });
   
-  // Garantindo que as listas iniciem vazias como solicitado
   const [players, setPlayers] = useState<Player[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
 
-  // Filtros Globais
   const filteredPlayers = players.filter(p => p.gender === gender);
   const filteredMatches = matches.filter(m => m.gender === gender && m.modality === modality);
   const filteredStaff = staff.filter(s => s.gender === gender);
@@ -129,7 +130,7 @@ const App: React.FC = () => {
           />
         );
       case 'SETTINGS':
-        return <Settings theme={theme} onThemeChange={setTheme} />;
+        return <Settings theme={theme} onThemeChange={setTheme} currentGender={gender} />;
       case 'ATHLETE_PORTAL':
         return (
           <AthletePortal 

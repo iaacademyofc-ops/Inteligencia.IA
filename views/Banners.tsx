@@ -80,10 +80,12 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
     setDownloading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 300));
+      // DO: Access primary/secondary colors from theme.categories[gender]
+      // Fixed: Accessing secondary color via category theme
       const dataUrl = await toPng(bannerRef.current, {
         cacheBust: true,
         pixelRatio: 4, 
-        backgroundColor: activeStyle === 'NOIR' ? '#000000' : theme.secondary,
+        backgroundColor: activeStyle === 'NOIR' ? '#000000' : theme.categories[gender].secondary,
         style: { borderRadius: '0' }
       });
       const fileName = `banner-${activeLayout.toLowerCase()}-${selectedMatch?.opponent.replace(/\s+/g, '-').toLowerCase() || 'jogo'}.png`;
@@ -114,7 +116,8 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
   const getBannerBackground = () => {
     if (activeStyle === 'NOIR') return 'bg-black';
     if (activeStyle === 'STREET') return 'bg-slate-900';
-    return `linear-gradient(160deg, ${theme.secondary} 0%, ${theme.primary} 100%)`;
+    // Fixed: Accessing primary and secondary colors via category theme
+    return `linear-gradient(160deg, ${theme.categories[gender].secondary} 0%, ${theme.categories[gender].primary} 100%)`;
   };
 
   const getTextStyle = () => {
@@ -226,7 +229,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               onClick={generateAIText}
               disabled={loading || !selectedMatch}
               className="w-full flex items-center justify-center space-x-3 text-white py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest transition-all shadow-xl active:scale-95 disabled:opacity-50"
-              style={{ backgroundColor: theme.primary }}
+              style={{ backgroundColor: theme.categories[gender].primary }}
             >
               {loading ? <Loader2 size={24} className="animate-spin" /> : <Sparkles size={24} />}
               <span>{loading ? "Processando Ideias..." : "Criar Slogan com IA"}</span>

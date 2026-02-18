@@ -46,11 +46,13 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
+  // Injetar cores específicas da categoria nas variáveis CSS globais
   useEffect(() => {
-    document.documentElement.style.setProperty('--primary-color', theme.primary);
-    document.documentElement.style.setProperty('--secondary-color', theme.secondary);
-    document.documentElement.style.setProperty('--accent-color', theme.accent);
-  }, [theme]);
+    const categoryTheme = theme.categories[currentGender];
+    document.documentElement.style.setProperty('--primary-color', categoryTheme.primary);
+    document.documentElement.style.setProperty('--secondary-color', categoryTheme.secondary);
+    document.documentElement.style.setProperty('--accent-color', categoryTheme.accent);
+  }, [theme, currentGender]);
 
   const navigation = [
     { id: 'DASHBOARD', name: 'Painel Geral', icon: LayoutDashboard },
@@ -63,6 +65,9 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'BANNERS', name: 'Marketing', icon: ImageIcon },
     { id: 'SETTINGS', name: 'Personalizar Clube', icon: Palette },
   ];
+
+  // Determinar o escudo a ser exibido baseado na categoria selecionada
+  const activeCrest = theme.categories[currentGender].crestUrl;
 
   if (currentView === 'ATHLETE_PORTAL') {
     return <div className="min-h-screen bg-slate-50">{children}</div>;
@@ -86,8 +91,8 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="p-8">
           <div className="flex items-center space-x-3 group cursor-pointer" onClick={() => onViewChange('DASHBOARD')}>
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/20 group-hover:scale-110 transition-transform overflow-hidden">
-              {theme.crestUrl ? (
-                <img src={theme.crestUrl} className="w-full h-full object-contain p-1" />
+              {activeCrest ? (
+                <img src={activeCrest} className="w-full h-full object-contain p-1" />
               ) : (
                 <Trophy size={24} className="text-white" />
               )}

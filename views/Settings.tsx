@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Palette, 
   Save, 
@@ -19,10 +19,9 @@ import {
   Camera,
   Sparkles
 } from 'lucide-react';
-import { TeamTheme, DocumentStatus } from '../types';
+import { TeamTheme, DocumentStatus, TeamGender, CategoryTheme } from '../types';
 
-// DO add comment above each fix.
-// Fixed: Added helper function to return appropriate icon based on document type.
+// Helper function to return appropriate icon based on document type.
 const getDocIcon = (type: string) => {
   const t = type.toLowerCase();
   if (t.includes('estatuto')) return <Stamp size={40} />;
@@ -30,7 +29,7 @@ const getDocIcon = (type: string) => {
   return <FileText size={40} />;
 };
 
-// Fixed: Added helper function to return appropriate CSS classes based on document type.
+// Helper function to return appropriate CSS classes based on document type.
 const getDocColor = (type: string) => {
   const t = type.toLowerCase();
   if (t.includes('estatuto')) return 'bg-amber-50 text-amber-600 border-amber-100';
@@ -41,50 +40,51 @@ const getDocColor = (type: string) => {
 interface SettingsProps {
   theme: TeamTheme;
   onThemeChange: (newTheme: TeamTheme) => void;
+  currentGender: TeamGender;
 }
 
-const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
+const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender }) => {
   const [localTheme, setLocalTheme] = React.useState<TeamTheme>(theme);
   const [activeTab, setActiveTab] = useState<'VISUAL' | 'DOCUMENTS'>('VISUAL');
   const [isExtracting, setIsExtracting] = useState(false);
   
   const crestInputRef = useRef<HTMLInputElement>(null);
 
+  // Sincronizar tema local quando o tema pai ou gênero mudar
+  useEffect(() => {
+    setLocalTheme(theme);
+  }, [theme]);
+
   const handleSave = () => {
     onThemeChange(localTheme);
-    alert('Identidade visual do clube atualizada com sucesso! O degradê do sistema foi sincronizado.');
+    alert(`Identidade visual da categoria ${currentGender} salva com sucesso!`);
   };
 
-  const resetTheme = () => {
-    const defaultTheme: TeamTheme = {
-      primary: '#1e3a8a',
-      secondary: '#0f172a',
-      accent: '#3b82f6',
-      teamName: 'TeamMaster Pro',
-      crestUrl: undefined,
-      clubDocuments: theme.clubDocuments
-    };
-    setLocalTheme(defaultTheme);
+  const currentCategoryTheme = localTheme.categories[currentGender];
+
+  const updateCategoryTheme = (updates: Partial<CategoryTheme>) => {
+    setLocalTheme({
+      ...localTheme,
+      categories: {
+        ...localTheme.categories,
+        [currentGender]: {
+          ...localTheme.categories[currentGender],
+          ...updates
+        }
+      }
+    });
+
+    // Injetar variáveis CSS imediatamente para preview no sistema
+    if (updates.primary) document.documentElement.style.setProperty('--primary-color', updates.primary);
+    if (updates.accent) document.documentElement.style.setProperty('--accent-color', updates.accent);
   };
 
-  const handleCrestUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLocalTheme({ ...localTheme, crestUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const extractColors = () => {
-    if (!localTheme.crestUrl) return;
+  const extractColors = (imageUrl: string) => {
     setIsExtracting(true);
 
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.src = localTheme.crestUrl;
+    img.src = imageUrl;
     
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -121,19 +121,37 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
       const secondary = sortedColors[1] || '#0f172a';
       const accent = sortedColors[2] || sortedColors[3] || '#3b82f6';
 
-      setLocalTheme({
-        ...localTheme,
+      updateCategoryTheme({
         primary,
         secondary,
-        accent
+        accent,
+        crestUrl: imageUrl
       });
       
       setIsExtracting(false);
-      
-      // Notificação visual da mudança
-      document.documentElement.style.setProperty('--primary-color', primary);
-      document.documentElement.style.setProperty('--accent-color', accent);
     };
+  };
+
+  const handleCrestUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        // Chamar extração automática imediatamente após o upload
+        extractColors(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetCategoryTheme = () => {
+    const defaults: Record<TeamGender, CategoryTheme> = {
+      [TeamGender.MALE]: { primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
+      [TeamGender.FEMALE]: { primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
+      [TeamGender.YOUTH]: { primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
+    };
+    updateCategoryTheme(defaults[currentGender]);
   };
 
   return (
@@ -141,7 +159,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações do Clube</h2>
-          <p className="text-slate-500 font-medium">Gerencie a alma visual e a burocracia oficial.</p>
+          <p className="text-slate-500 font-medium">Personalizando a categoria: <strong className="text-blue-600">{currentGender}</strong></p>
         </div>
         <div className="flex items-center bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200">
           <button 
@@ -182,27 +200,30 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
               <div className="space-y-4">
                 <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                    <Shield size={14} />
-                   <span>Escudo do Clube (PNG/JPG)</span>
+                   <span>Escudo da Categoria: {currentGender}</span>
                  </label>
                  <div className="flex flex-col md:flex-row items-center gap-8 bg-slate-50/30 p-6 rounded-[2rem] border border-slate-100">
                     <div 
                       onClick={() => crestInputRef.current?.click()}
-                      className="w-32 h-32 rounded-[2.2rem] bg-white border-2 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm overflow-hidden group relative"
+                      className={`w-32 h-32 rounded-[2.2rem] bg-white border-2 border-dashed ${isExtracting ? 'border-blue-500 animate-pulse' : 'border-slate-200'} flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm overflow-hidden group relative`}
                     >
-                      {localTheme.crestUrl ? (
-                        <img src={localTheme.crestUrl} className="w-full h-full object-contain p-2" alt="Escudo" />
+                      {currentCategoryTheme.crestUrl ? (
+                        <img src={currentCategoryTheme.crestUrl} className="w-full h-full object-contain p-2" alt="Escudo" />
                       ) : (
                         <>
                           <Camera size={24} className="text-slate-300 mb-1" />
-                          <span className="text-[9px] font-black uppercase text-slate-400">Inserir</span>
+                          <span className="text-[9px] font-black uppercase text-slate-400">Upload {currentGender}</span>
                         </>
                       )}
                       <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors"></div>
                     </div>
                     <div className="flex-1 space-y-3">
-                       <h4 className="text-lg font-black text-slate-800 tracking-tight">Sincronização de Cores</h4>
+                       <h4 className="text-lg font-black text-slate-800 tracking-tight flex items-center">
+                         <Sparkles size={18} className="text-blue-500 mr-2" />
+                         Branding Automático Ativo
+                       </h4>
                        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                         Ao carregar seu escudo, use a ferramenta de extração para definir automaticamente as cores do sistema e o <strong>degradê de fundo</strong> de todas as áreas da plataforma.
+                         Ao carregar o escudo de <strong>{currentGender}</strong>, o sistema atualizará automaticamente as cores primária, secundária e o degradê desta categoria para manter a harmonia visual.
                        </p>
                        <div className="flex gap-3 pt-2">
                           <button 
@@ -210,40 +231,31 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
                             className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center space-x-2"
                           >
                             <Upload size={14} />
-                            <span>Mudar Escudo</span>
+                            <span>{currentCategoryTheme.crestUrl ? 'Trocar Escudo' : 'Selecionar Escudo'}</span>
                           </button>
-                          {localTheme.crestUrl && (
-                            <button 
-                              onClick={extractColors}
-                              disabled={isExtracting}
-                              className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all flex items-center space-x-2 shadow-lg shadow-blue-500/20"
-                            >
-                              <Pipette size={14} />
-                              <span>{isExtracting ? 'Analisando...' : 'Puxar Cores do Escudo'}</span>
-                            </button>
-                          )}
                        </div>
                     </div>
                     <input type="file" ref={crestInputRef} className="hidden" accept="image/*" onChange={handleCrestUpload} />
                  </div>
               </div>
 
+              {/* Seletor de Cores Dinâmico */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
                  <div className="space-y-4">
                     <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: localTheme.primary}}></div>
+                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: currentCategoryTheme.primary}}></div>
                       <span>Cor Primária</span>
                     </label>
                     <div className="flex items-center space-x-3">
                       <input 
                         type="color" 
-                        value={localTheme.primary}
-                        onChange={(e) => setLocalTheme({...localTheme, primary: e.target.value})}
+                        value={currentCategoryTheme.primary}
+                        onChange={(e) => updateCategoryTheme({ primary: e.target.value })}
                         className="w-10 h-10 rounded-xl border-none cursor-pointer overflow-hidden p-0 bg-transparent"
                       />
                       <input 
                         type="text"
-                        value={localTheme.primary.toUpperCase()}
+                        value={currentCategoryTheme.primary.toUpperCase()}
                         readOnly
                         className="flex-1 bg-slate-100/50 border-none rounded-xl py-2 px-3 text-[10px] font-mono font-bold text-slate-600"
                       />
@@ -252,19 +264,19 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
 
                  <div className="space-y-4">
                     <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: localTheme.secondary}}></div>
+                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: currentCategoryTheme.secondary}}></div>
                       <span>Cor Secundária</span>
                     </label>
                     <div className="flex items-center space-x-3">
                       <input 
                         type="color" 
-                        value={localTheme.secondary}
-                        onChange={(e) => setLocalTheme({...localTheme, secondary: e.target.value})}
+                        value={currentCategoryTheme.secondary}
+                        onChange={(e) => updateCategoryTheme({ secondary: e.target.value })}
                         className="w-10 h-10 rounded-xl border-none cursor-pointer overflow-hidden p-0 bg-transparent"
                       />
                       <input 
                         type="text"
-                        value={localTheme.secondary.toUpperCase()}
+                        value={currentCategoryTheme.secondary.toUpperCase()}
                         readOnly
                         className="flex-1 bg-slate-100/50 border-none rounded-xl py-2 px-3 text-[10px] font-mono font-bold text-slate-600"
                       />
@@ -273,19 +285,19 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
 
                  <div className="space-y-4">
                     <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: localTheme.accent}}></div>
-                      <span>Cor Terciária (Degradê)</span>
+                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: currentCategoryTheme.accent}}></div>
+                      <span>Cor Destaque / Fundo</span>
                     </label>
                     <div className="flex items-center space-x-3">
                       <input 
                         type="color" 
-                        value={localTheme.accent}
-                        onChange={(e) => setLocalTheme({...localTheme, accent: e.target.value})}
+                        value={currentCategoryTheme.accent}
+                        onChange={(e) => updateCategoryTheme({ accent: e.target.value })}
                         className="w-10 h-10 rounded-xl border-none cursor-pointer overflow-hidden p-0 bg-transparent"
                       />
                       <input 
                         type="text"
-                        value={localTheme.accent.toUpperCase()}
+                        value={currentCategoryTheme.accent.toUpperCase()}
                         readOnly
                         className="flex-1 bg-slate-100/50 border-none rounded-xl py-2 px-3 text-[10px] font-mono font-bold text-slate-600"
                       />
@@ -296,66 +308,60 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange }) => {
 
             <div className="flex justify-end space-x-4">
               <button 
-                onClick={resetTheme}
+                onClick={resetCategoryTheme}
                 className="flex items-center space-x-2 px-6 py-3 text-slate-600 hover:bg-slate-100 rounded-2xl font-bold text-sm transition-all"
               >
                 <RefreshCw size={18} />
-                <span>Restaurar Padrão</span>
+                <span>Restaurar {currentGender}</span>
               </button>
               <button 
                 onClick={handleSave}
                 className="flex items-center space-x-3 text-white px-10 py-4 rounded-[1.5rem] font-black text-sm uppercase tracking-widest shadow-2xl hover:opacity-90 transition-all active:scale-95"
-                style={{ backgroundColor: localTheme.primary }}
+                style={{ backgroundColor: currentCategoryTheme.primary }}
               >
                 <Save size={18} />
-                <span>Salvar Identidade</span>
+                <span>Salvar Tudo em {currentGender}</span>
               </button>
             </div>
           </div>
 
           <div className="space-y-6">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Preview Dinâmico do Fundo</p>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Preview em Tempo Real ({currentGender})</p>
              
-             {/* Preview do Degradê de Fundo */}
+             {/* Preview do Degradê de Fundo Dinâmico */}
              <div 
                className="aspect-[4/5] rounded-[3rem] shadow-2xl flex flex-col items-center justify-center p-8 text-white relative overflow-hidden group border-8 border-white/50"
-               style={{ background: `linear-gradient(135deg, ${localTheme.primary} 0%, ${localTheme.accent} 100%)` }}
+               style={{ background: `linear-gradient(135deg, ${currentCategoryTheme.primary} 0%, ${currentCategoryTheme.accent} 100%)` }}
              >
                 <div className="absolute inset-0 bg-white/10 opacity-30 mix-blend-overlay"></div>
                 <div className="relative z-10 flex flex-col items-center text-center">
-                   <div className="w-32 h-32 bg-white/20 backdrop-blur-2xl border-2 border-white/30 rounded-[2.2rem] flex items-center justify-center mb-6 shadow-2xl p-4">
-                      {localTheme.crestUrl ? (
-                        <img src={localTheme.crestUrl} className="w-full h-full object-contain" alt="Escudo" />
+                   <div className="w-32 h-32 bg-white/20 backdrop-blur-2xl border-2 border-white/30 rounded-[2.2rem] flex items-center justify-center mb-6 shadow-2xl p-4 transition-all group-hover:scale-105 duration-500">
+                      {currentCategoryTheme.crestUrl ? (
+                        <img src={currentCategoryTheme.crestUrl} className="w-full h-full object-contain" alt="Escudo" />
                       ) : (
                         <Shield size={60} className="text-white" />
                       )}
                    </div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Visual das Views</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Ambiente {currentGender}</p>
                    <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-tight drop-shadow-xl mb-6 px-4">
                      {localTheme.teamName}
                    </h3>
 
-                   {/* Simulação de um card interno */}
                    <div className="w-full glass-card p-6 rounded-3xl text-slate-800 text-left space-y-3">
                       <div className="h-2 w-1/2 bg-slate-200 rounded-full"></div>
                       <div className="h-4 w-full bg-slate-100 rounded-lg"></div>
                       <div className="h-4 w-3/4 bg-slate-100 rounded-lg"></div>
-                      <div className="pt-2">
-                        <div className="w-full h-8 rounded-xl bg-slate-900 flex items-center justify-center">
-                           <span className="text-[9px] font-black text-white uppercase tracking-widest">Botão do Menu</span>
-                        </div>
-                      </div>
                    </div>
                 </div>
              </div>
              
              <div className="p-6 bg-white rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
                 <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
-                   <Sparkles size={20} />
+                   <Palette size={20} />
                 </div>
                 <div>
-                   <p className="text-xs font-black text-slate-900 uppercase">Fundo Automático</p>
-                   <p className="text-[10px] font-medium text-slate-400">O degradê acima será aplicado em todos os menus abertos.</p>
+                   <p className="text-xs font-black text-slate-900 uppercase">Tema Inteligente</p>
+                   <p className="text-[10px] font-medium text-slate-400">Cada categoria preserva sua própria identidade de cores e escudo.</p>
                 </div>
              </div>
           </div>

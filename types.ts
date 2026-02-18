@@ -106,12 +106,16 @@ export interface Match {
   modality: Modality;
 }
 
-export interface TeamTheme {
+export interface CategoryTheme {
   primary: string;
   secondary: string;
   accent: string;
-  teamName: string;
   crestUrl?: string;
+}
+
+export interface TeamTheme {
+  teamName: string;
+  categories: Record<TeamGender, CategoryTheme>;
   clubDocuments: TeamDocument[];
 }
 
