@@ -1,20 +1,23 @@
 
 import React from 'react';
-import { Trophy, Users, Calendar, AlertCircle, TrendingUp, ArrowRight, Star } from 'lucide-react';
-import { Player, Match, MatchType, ViewType } from '../types';
+import { Trophy, Users, Calendar, AlertCircle, TrendingUp, ArrowRight, Star, Shield } from 'lucide-react';
+import { Player, Match, MatchType, ViewType, TeamTheme, TeamGender } from '../types';
 
 interface DashboardProps {
   players: Player[];
   matches: Match[];
   onViewChange: (view: ViewType) => void;
+  theme: TeamTheme;
+  gender: TeamGender;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange }) => {
+const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange, theme, gender }) => {
   const upcomingMatches = matches.filter(m => !m.isFinished).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const recentResults = matches.filter(m => m.isFinished).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
   const totalGoals = players.reduce((acc, p) => acc + p.stats.goals, 0);
   const nextMatch = upcomingMatches[0];
+  const currentCategory = theme.categories[gender];
 
   return (
     <div className="space-y-8">
@@ -22,7 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange })
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bem-vindo, Coach!</h2>
-          <p className="text-slate-500 font-medium">Aqui está o resumo do desempenho do seu time hoje.</p>
+          <p className="text-slate-500 font-medium">Você está no comando do <strong className="dynamic-text-primary">{currentCategory.teamName}</strong>.</p>
         </div>
         <div className="bg-white px-4 py-2 rounded-xl shadow-sm border flex items-center space-x-2">
           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -101,8 +104,12 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange })
             </div>
 
             <div className="hidden md:flex flex-col items-center justify-center space-y-4">
-               <div className="w-32 h-32 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center float-animation">
-                  <Trophy size={64} className="text-blue-400 opacity-80" />
+               <div className="w-32 h-32 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-md flex items-center justify-center float-animation overflow-hidden p-4">
+                  {currentCategory.crestUrl ? (
+                    <img src={currentCategory.crestUrl} className="w-full h-full object-contain" />
+                  ) : (
+                    <Shield size={64} className="text-blue-400 opacity-80" />
+                  )}
                </div>
                <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest">Matchday Experience</p>
             </div>

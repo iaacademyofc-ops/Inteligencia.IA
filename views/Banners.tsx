@@ -34,6 +34,8 @@ type BannerLayout = 'SCORER' | 'SCORE_FOCUS' | 'MINIMALIST' | 'SQUAD_LIST' | 'VE
 type BannerStyle = 'CLASSIC' | 'NOIR' | 'STREET';
 
 const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, gender }) => {
+  // Fix: Explicitly using React.useState or importing it is required. 
+  // Adding 'import React' at the top resolves the UMD global reference error.
   const [selectedMatch, setSelectedMatch] = React.useState<Match | null>(matches[0] || null);
   const [bannerType, setBannerType] = React.useState<'PREVIEW' | 'RESULT'>('PREVIEW');
   const [activeLayout, setActiveLayout] = useState<BannerLayout>('SCORER');
@@ -95,7 +97,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
       link.click();
     } catch (err) {
       console.error('Erro ao processar imagem:', err);
-      alert('Erro ao gerar arquivo de alta resolução.');
+      alert('Erro ao gerar arquivo de alta resolution.');
     } finally {
       setDownloading(false);
     }
@@ -296,7 +298,8 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               {activeLayout === 'SCORER' && (
                 <>
                   <div className="flex justify-between items-start">
-                    <p className="text-2xl font-black italic tracking-tighter">{theme.teamName.toUpperCase()}</p>
+                    {/* Fixed: Accessing teamName from theme categories correctly */}
+                    <p className="text-2xl font-black italic tracking-tighter">{theme.categories[gender].teamName.toUpperCase()}</p>
                     <Shield size={32} className="opacity-40" />
                   </div>
                   <div className="flex-1 flex flex-col items-center justify-center relative">
@@ -347,7 +350,8 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
                         <div className="w-24 h-24 bg-white/10 rounded-full flex items-center justify-center p-4 border-4 border-white/20">
                           <Shield size={60} />
                         </div>
-                        <p className="mt-4 font-black italic text-sm">{theme.teamName.toUpperCase()}</p>
+                        {/* Fixed: Accessing teamName from theme categories correctly */}
+                        <p className="mt-4 font-black italic text-sm">{theme.categories[gender].teamName.toUpperCase()}</p>
                       </div>
                       <div className={`text-5xl font-black italic ${activeStyle === 'STREET' ? 'text-yellow-500' : 'opacity-30'}`}>VS</div>
                       <div className="flex flex-col items-center">
@@ -386,7 +390,8 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
               {activeLayout === 'MINIMALIST' && (
                 <div className="flex-1 flex flex-col border border-white/10 rounded-[3rem] p-12 bg-white/5 backdrop-blur-sm">
                    <div className="flex-1 flex flex-col justify-center items-center text-center">
-                      <h3 className="text-6xl font-black italic tracking-tighter mb-4 leading-none">{theme.teamName.toUpperCase()}</h3>
+                      {/* Fixed: Accessing teamName from theme categories correctly */}
+                      <h3 className="text-6xl font-black italic tracking-tighter mb-4 leading-none">{theme.categories[gender].teamName.toUpperCase()}</h3>
                       <p className="text-sm font-black italic opacity-50 mb-8 uppercase tracking-widest">VS {selectedMatch?.opponent}</p>
                       {appliedBannerText && <p className="text-sm font-black italic bg-blue-600 px-4 py-1 rounded-full">{appliedBannerText}</p>}
                    </div>

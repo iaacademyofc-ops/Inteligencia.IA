@@ -73,6 +73,8 @@ export interface Staff {
   name: string;
   role: StaffRole;
   gender: TeamGender;
+  /* Fix: Added photoUrl to Staff interface to allow profile photos and fix TypeScript compilation errors in shared views */
+  photoUrl?: string;
   documents: TeamDocument[];
 }
 
@@ -107,6 +109,7 @@ export interface Match {
 }
 
 export interface CategoryTheme {
+  teamName: string;
   primary: string;
   secondary: string;
   accent: string;
@@ -114,9 +117,8 @@ export interface CategoryTheme {
 }
 
 export interface TeamTheme {
-  teamName: string;
   categories: Record<TeamGender, CategoryTheme>;
   clubDocuments: TeamDocument[];
 }
 
-export type ViewType = 'DASHBOARD' | 'PLAYERS' | 'STAFF' | 'MATCHES' | 'DOCUMENTS' | 'BANNERS' | 'STATS' | 'OFFICIAL_NUMBERS' | 'ATHLETE_PORTAL' | 'SETTINGS';
+export type ViewType = 'DASHBOARD' | 'PLAYERS' | 'STAFF' | 'MATCHES' | 'DOCUMENTS' | 'BANNERS' | 'STATS' | 'OFFICIAL_NUMBERS' | 'ATHLETE_PORTAL' | 'STAFF_PORTAL' | 'SETTINGS';

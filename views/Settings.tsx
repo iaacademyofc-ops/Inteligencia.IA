@@ -17,9 +17,17 @@ import {
   Archive,
   Pipette,
   Camera,
-  Sparkles
+  Sparkles,
+  Gavel,
+  FileSignature,
+  BookOpen,
+  Loader2,
+  X,
+  Copy,
+  ChevronRight
 } from 'lucide-react';
 import { TeamTheme, DocumentStatus, TeamGender, CategoryTheme } from '../types';
+import { generateInstitutionalDocumentAI } from '../services/geminiService';
 
 // Helper function to return appropriate icon based on document type.
 const getDocIcon = (type: string) => {
@@ -48,6 +56,11 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
   const [activeTab, setActiveTab] = useState<'VISUAL' | 'DOCUMENTS'>('VISUAL');
   const [isExtracting, setIsExtracting] = useState(false);
   
+  // AI Doc States
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [generatedDocContent, setGeneratedDocContent] = useState<string | null>(null);
+  const [selectedDocType, setSelectedDocType] = useState<string>('');
+
   const crestInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar tema local quando o tema pai ou gênero mudar
@@ -61,6 +74,19 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
   };
 
   const currentCategoryTheme = localTheme.categories[currentGender];
+
+  const handleGenerateAiDoc = async (type: string) => {
+    setSelectedDocType(type);
+    setIsAiGenerating(true);
+    const content = await generateInstitutionalDocumentAI(
+      type,
+      currentCategoryTheme.teamName,
+      "Futebol",
+      currentGender
+    );
+    setGeneratedDocContent(content);
+    setIsAiGenerating(false);
+  };
 
   const updateCategoryTheme = (updates: Partial<CategoryTheme>) => {
     setLocalTheme({
@@ -147,9 +173,9 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
 
   const resetCategoryTheme = () => {
     const defaults: Record<TeamGender, CategoryTheme> = {
-      [TeamGender.MALE]: { primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
-      [TeamGender.FEMALE]: { primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
-      [TeamGender.YOUTH]: { primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
+      [TeamGender.MALE]: { teamName: 'TeamMaster Pro', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
+      [TeamGender.FEMALE]: { teamName: 'TeamMaster Girls', primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
+      [TeamGender.YOUTH]: { teamName: 'TeamMaster Base', primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
     };
     updateCategoryTheme(defaults[currentGender]);
   };
@@ -187,12 +213,12 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
               <div className="space-y-4">
                  <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                    <Type size={14} />
-                   <span>Nome Oficial do Clube</span>
+                   <span>Nome do Time em {currentGender}</span>
                  </label>
                  <input 
                    type="text"
-                   value={localTheme.teamName}
-                   onChange={(e) => setLocalTheme({...localTheme, teamName: e.target.value})}
+                   value={currentCategoryTheme.teamName}
+                   onChange={(e) => updateCategoryTheme({ teamName: e.target.value })}
                    className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-4 px-6 text-slate-800 font-black text-xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-inner"
                  />
               </div>
@@ -344,7 +370,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
                    </div>
                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Ambiente {currentGender}</p>
                    <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-tight drop-shadow-xl mb-6 px-4">
-                     {localTheme.teamName}
+                     {currentCategoryTheme.teamName}
                    </h3>
 
                    <div className="w-full glass-card p-6 rounded-3xl text-slate-800 text-left space-y-3">
@@ -367,7 +393,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
           </div>
         </div>
       ) : (
-        <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-300">
+        <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-300 pb-20">
           <div className="glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 text-slate-50 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
               <Archive size={160} />
@@ -385,6 +411,44 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
                 <span>Novo Documento</span>
               </button>
             </div>
+          </div>
+
+          {/* NOVO: GERADOR DE DOCUMENTOS IA */}
+          <div className="space-y-6">
+             <div className="flex items-center space-x-3 ml-4">
+                <Sparkles className="text-blue-500" size={20} />
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Smart Doc Architect (Gerador IA)</h3>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <AiDocCard 
+                  title="Estatuto Social" 
+                  icon={<Gavel size={24} />} 
+                  description="Regras fundamentais do clube" 
+                  onClick={() => handleGenerateAiDoc("Estatuto Social")}
+                  isLoading={isAiGenerating && selectedDocType === "Estatuto Social"}
+                />
+                <AiDocCard 
+                  title="Contrato Atleta" 
+                  icon={<FileSignature size={24} />} 
+                  description="Minuta de vínculo esportivo" 
+                  onClick={() => handleGenerateAiDoc("Contrato de Atleta Profissional")}
+                  isLoading={isAiGenerating && selectedDocType === "Contrato de Atleta Profissional"}
+                />
+                <AiDocCard 
+                  title="Regimento Interno" 
+                  icon={<BookOpen size={24} />} 
+                  description="Normas de conduta do CT" 
+                  onClick={() => handleGenerateAiDoc("Regimento Interno")}
+                  isLoading={isAiGenerating && selectedDocType === "Regimento Interno"}
+                />
+                <AiDocCard 
+                  title="Termo de Imagem" 
+                  icon={<Camera size={24} />} 
+                  description="Autorização para marketing" 
+                  onClick={() => handleGenerateAiDoc("Termo de Uso de Imagem")}
+                  isLoading={isAiGenerating && selectedDocType === "Termo de Uso de Imagem"}
+                />
+             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -431,8 +495,67 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
           </div>
         </div>
       )}
+
+      {/* MODAL PREVIEW DOCUMENTO IA */}
+      {generatedDocContent && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-300">
+           <div className="bg-white rounded-[3.5rem] shadow-2xl max-w-4xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="bg-slate-900 p-10 text-white flex justify-between items-center relative overflow-hidden">
+                 <div className="absolute top-0 right-0 p-10 opacity-5"><Sparkles size={120} /></div>
+                 <div className="flex items-center space-x-6 relative z-10">
+                    <div className="p-5 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-500/20"><FileSignature size={32} /></div>
+                    <div>
+                       <h3 className="text-2xl font-black italic tracking-tighter leading-none">{selectedDocType.toUpperCase()}</h3>
+                       <p className="text-[10px] uppercase font-bold text-blue-400 tracking-[0.3em] mt-2">Minuta gerada com inteligência artificial</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setGeneratedDocContent(null)} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-all relative z-10"><X size={20} /></button>
+              </div>
+
+              <div className="flex-1 bg-slate-50 p-8 overflow-y-auto custom-scrollbar">
+                 <div className="bg-white p-12 rounded-[2rem] shadow-inner border border-slate-200 whitespace-pre-wrap font-serif text-slate-700 leading-relaxed min-h-[500px]">
+                    {generatedDocContent}
+                 </div>
+              </div>
+
+              <div className="p-10 border-t bg-white flex flex-col sm:flex-row gap-4">
+                 <button 
+                  onClick={() => { navigator.clipboard.writeText(generatedDocContent); alert('Documento copiado!'); }}
+                  className="flex-1 bg-slate-100 text-slate-600 py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3 hover:bg-slate-200 transition-all"
+                 >
+                    <Copy size={20} />
+                    <span>Copiar Texto</span>
+                 </button>
+                 <button className="flex-1 bg-blue-600 text-white py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl">
+                    <Download size={20} />
+                    <span>Exportar para Dossiê</span>
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// COMPLEMENTARY UI COMPONENTS
+const AiDocCard = ({ title, icon, description, onClick, isLoading }: { title: string, icon: React.ReactNode, description: string, onClick: () => void, isLoading?: boolean }) => (
+  <button 
+    onClick={onClick}
+    disabled={isLoading}
+    className="group bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all text-left flex flex-col relative overflow-hidden active:scale-95 disabled:opacity-80"
+  >
+     <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-5 transition-opacity">{icon}</div>
+     <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-inner">
+        {isLoading ? <Loader2 size={24} className="animate-spin" /> : icon}
+     </div>
+     <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-2">{title}</h4>
+     <p className="text-[9px] font-medium text-slate-400 leading-tight mb-6">{description}</p>
+     <div className="mt-auto flex items-center text-[8px] font-black text-blue-600 uppercase tracking-widest">
+        <span>{isLoading ? "Consultando Gemini..." : "Gerar com IA"}</span>
+        <ChevronRight size={12} className="ml-1 group-hover:translate-x-1 transition-transform" />
+     </div>
+  </button>
+);
 
 export default Settings;

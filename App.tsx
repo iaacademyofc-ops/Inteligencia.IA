@@ -8,8 +8,9 @@ import Banners from './views/Banners.tsx';
 import Documents from './views/Documents.tsx';
 import OfficialNumbers from './views/OfficialNumbers.tsx';
 import AthletePortal from './views/AthletePortal.tsx';
+import StaffPortal from './views/StaffPortal.tsx';
 import Settings from './views/Settings.tsx';
-import { Player, Staff, Match, ViewType, PlayerPosition, StaffRole, MatchType, DocumentStatus, Modality, TeamTheme, TeamGender, TeamDocument } from './types.ts';
+import { Player, Staff, Match, ViewType, DocumentStatus, Modality, TeamTheme, TeamGender, TeamDocument } from './types.ts';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('DASHBOARD');
@@ -17,11 +18,10 @@ const App: React.FC = () => {
   const [gender, setGender] = useState<TeamGender>(TeamGender.MALE);
   
   const [theme, setTheme] = useState<TeamTheme>({
-    teamName: 'TeamMaster Pro',
     categories: {
-      [TeamGender.MALE]: { primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
-      [TeamGender.FEMALE]: { primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
-      [TeamGender.YOUTH]: { primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
+      [TeamGender.MALE]: { teamName: 'TeamMaster Pro', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
+      [TeamGender.FEMALE]: { teamName: 'TeamMaster Girls', primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
+      [TeamGender.YOUTH]: { teamName: 'TeamMaster Base', primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
     },
     clubDocuments: [
       { id: 'cd1', type: 'Estatuto Social', status: DocumentStatus.VALID, issueDate: '2020-01-01', documentNumber: 'EST-2020' },
@@ -31,35 +31,20 @@ const App: React.FC = () => {
   
   const [players, setPlayers] = useState<Player[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]); // Inicializado vazio conforme solicitado
+  const [matches, setMatches] = useState<Match[]>([]); 
 
   const filteredPlayers = players.filter(p => p.gender === gender);
   const filteredMatches = matches.filter(m => m.gender === gender && m.modality === modality);
   const filteredStaff = staff.filter(s => s.gender === gender);
 
-  const handleAddPlayer = (newPlayer: Player) => {
-    setPlayers(prev => [...prev, newPlayer]);
-  };
-
-  const handleAddStaff = (newStaff: Staff) => {
-    setStaff(prev => [...prev, newStaff]);
-  };
-
-  const handleDeletePlayer = (id: string) => {
-    setPlayers(prev => prev.filter(p => p.id !== id));
-  };
-
-  const handleDeleteStaff = (id: string) => {
-    setStaff(prev => prev.filter(s => s.id !== id));
-  };
-
-  const handleAddMatch = (newMatch: Match) => {
-    setMatches(prev => [...prev, newMatch]);
-  };
-
-  const handleUpdateMatch = (updatedMatch: Match) => {
-    setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-  };
+  const handleAddPlayer = (newPlayer: Player) => setPlayers(prev => [...prev, newPlayer]);
+  const handleUpdatePlayer = (updatedPlayer: Player) => setPlayers(prev => prev.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+  const handleAddStaff = (newStaff: Staff) => setStaff(prev => [...prev, newStaff]);
+  const handleUpdateStaff = (updatedStaff: Staff) => setStaff(prev => prev.map(s => s.id === updatedStaff.id ? updatedStaff : s));
+  const handleDeletePlayer = (id: string) => setPlayers(prev => prev.filter(p => p.id !== id));
+  const handleDeleteStaff = (id: string) => setStaff(prev => prev.filter(s => s.id !== id));
+  const handleAddMatch = (newMatch: Match) => setMatches(prev => [...prev, newMatch]);
+  const handleUpdateMatch = (updatedMatch: Match) => setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
 
   const handleAddDocument = (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => {
     if (ownerType === 'Atleta') {
@@ -72,67 +57,25 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentView) {
       case 'DASHBOARD':
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} theme={theme} gender={gender} />;
       case 'PLAYERS':
-        return (
-          <Roster 
-            type="PLAYERS" 
-            players={filteredPlayers} 
-            staff={[]} 
-            matches={filteredMatches}
-            modality={modality} 
-            currentGender={gender} 
-            onAddPlayer={handleAddPlayer}
-            onDeletePlayer={handleDeletePlayer}
-          />
-        );
+        return <Roster type="PLAYERS" players={filteredPlayers} staff={[]} matches={filteredMatches} modality={modality} currentGender={gender} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />;
       case 'OFFICIAL_NUMBERS':
         return <OfficialNumbers players={filteredPlayers} modality={modality} />;
       case 'STAFF':
-        return (
-          <Roster 
-            type="STAFF" 
-            players={[]} 
-            staff={filteredStaff} 
-            matches={filteredMatches}
-            modality={modality} 
-            currentGender={gender} 
-            onAddStaff={handleAddStaff}
-            onDeleteStaff={handleDeleteStaff}
-          />
-        );
+        return <Roster type="STAFF" players={[]} staff={filteredStaff} matches={filteredMatches} modality={modality} currentGender={gender} onAddStaff={handleAddStaff} onUpdateStaff={handleUpdateStaff} onDeleteStaff={handleDeleteStaff} />;
       case 'MATCHES':
-        return (
-          <Matches 
-            matches={filteredMatches} 
-            onAddMatch={handleAddMatch}
-            onUpdateMatch={handleUpdateMatch}
-            players={filteredPlayers}
-            currentModality={modality}
-            currentGender={gender}
-          />
-        );
+        return <Matches matches={filteredMatches} onAddMatch={handleAddMatch} onUpdateMatch={handleUpdateMatch} players={filteredPlayers} currentModality={modality} currentGender={gender} theme={theme} />;
       case 'BANNERS':
         return <Banners matches={filteredMatches} players={filteredPlayers} modality={modality} theme={theme} gender={gender} />;
       case 'DOCUMENTS':
-        return (
-          <Documents 
-            players={filteredPlayers} 
-            staff={filteredStaff} 
-            onAddDocument={handleAddDocument}
-          />
-        );
+        return <Documents players={filteredPlayers} staff={filteredStaff} onAddDocument={handleAddDocument} />;
       case 'SETTINGS':
         return <Settings theme={theme} onThemeChange={setTheme} currentGender={gender} />;
       case 'ATHLETE_PORTAL':
-        return (
-          <AthletePortal 
-            players={filteredPlayers} 
-            matches={filteredMatches} 
-            onAddDocument={handleAddDocument}
-            onExit={() => setCurrentView('DASHBOARD')} 
-          />
-        );
+        return <AthletePortal players={filteredPlayers} matches={filteredMatches} onAddDocument={handleAddDocument} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} />;
+      case 'STAFF_PORTAL':
+        return <StaffPortal staff={filteredStaff} players={filteredPlayers} matches={filteredMatches} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} modality={modality} />;
       case 'STATS':
         return (
           <div className="space-y-6">
@@ -154,7 +97,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} theme={theme} gender={gender} />;
     }
   };
 

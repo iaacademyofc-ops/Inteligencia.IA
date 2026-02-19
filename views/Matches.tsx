@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Calendar, MapPin, Clock, Trophy, Plus, ChevronRight, X, Shield, Globe, Users, Star, History, Goal, CreditCard, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
-import { Match, MatchType, Modality, TeamGender, Player, MatchEvent } from '../types';
+import { Match, MatchType, Modality, TeamGender, Player, MatchEvent, TeamTheme } from '../types';
 
 interface MatchesProps {
   matches: Match[];
@@ -10,9 +10,10 @@ interface MatchesProps {
   onUpdateMatch?: (match: Match) => void;
   currentModality: Modality;
   currentGender: TeamGender;
+  theme: TeamTheme;
 }
 
-const Matches: React.FC<MatchesProps> = ({ matches, players, onAddMatch, onUpdateMatch, currentModality, currentGender }) => {
+const Matches: React.FC<MatchesProps> = ({ matches, players, onAddMatch, onUpdateMatch, currentModality, currentGender, theme }) => {
   const [filter, setFilter] = useState<'ALL' | 'OFFICIAL' | 'FRIENDLY'>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedSummaryMatch, setSelectedSummaryMatch] = useState<Match | null>(null);
@@ -113,6 +114,8 @@ const Matches: React.FC<MatchesProps> = ({ matches, players, onAddMatch, onUpdat
     setShowAddModal(false);
   };
 
+  const currentCategory = theme.categories[currentGender];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -156,10 +159,14 @@ const Matches: React.FC<MatchesProps> = ({ matches, players, onAddMatch, onUpdat
               <div className="text-center space-y-4">
                 <div className="flex items-center justify-center space-x-6">
                    <div className="flex flex-col items-center">
-                      <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mb-2 shadow-lg">
-                         <Shield size={32} />
+                      <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mb-2 shadow-lg overflow-hidden p-2">
+                         {currentCategory.crestUrl ? (
+                           <img src={currentCategory.crestUrl} className="w-full h-full object-contain" />
+                         ) : (
+                           <Shield size={32} />
+                         )}
                       </div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">MEU CLUBE</p>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter truncate w-16 text-center">{currentCategory.teamName.split(' ')[0]}</p>
                    </div>
                    
                    <div className="flex flex-col items-center">
@@ -219,8 +226,14 @@ const Matches: React.FC<MatchesProps> = ({ matches, players, onAddMatch, onUpdat
 
                <div className="mt-10 flex items-center justify-center space-x-12">
                   <div className="text-center">
-                    <Shield size={48} className="mx-auto mb-2 text-blue-500" />
-                    <p className="text-sm font-black italic">MEU CLUBE</p>
+                    <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-2 overflow-hidden p-2">
+                       {currentCategory.crestUrl ? (
+                         <img src={currentCategory.crestUrl} className="w-full h-full object-contain" />
+                       ) : (
+                         <Shield size={48} className="text-blue-500" />
+                       )}
+                    </div>
+                    <p className="text-sm font-black italic">{currentCategory.teamName.toUpperCase()}</p>
                   </div>
                   <div className="text-7xl font-black italic tracking-tighter flex items-center space-x-6">
                     <span className="bg-white/5 px-6 py-2 rounded-3xl border border-white/10">{selectedSummaryMatch.scoreHome}</span>
