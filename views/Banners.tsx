@@ -18,13 +18,14 @@ import {
   Users2,
   Flame
 } from 'lucide-react';
-import { Match, Player, Modality, TeamTheme, TeamGender } from '../types';
-import { generateMatchPreview, generateMatchSummary, AIResponse } from '../services/geminiService';
-import { toPng } from 'https://esm.sh/html-to-image';
+import { Match, Player, Staff, Modality, TeamTheme, TeamGender } from '../types';
+import { generateMatchPreview, generateMatchSummary, generateSigningBannerAI, AIResponse } from '../services/geminiService';
+import { toPng } from 'html-to-image';
 
 interface BannersProps {
   matches: Match[];
   players: Player[];
+  staff: Staff[];
   modality: Modality;
   theme: TeamTheme;
   gender: TeamGender;
@@ -33,17 +34,19 @@ interface BannersProps {
 type BannerLayout = 'SCORER' | 'SCORE_FOCUS' | 'MINIMALIST' | 'SQUAD_LIST' | 'VERSUS_WIDE';
 type BannerStyle = 'CLASSIC' | 'NOIR' | 'STREET';
 
-const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, gender }) => {
+const Banners: React.FC<BannersProps> = ({ matches, players, staff, modality, theme, gender }) => {
   // Fix: Explicitly using React.useState or importing it is required. 
   // Adding 'import React' at the top resolves the UMD global reference error.
   const [selectedMatch, setSelectedMatch] = React.useState<Match | null>(matches[0] || null);
-  const [bannerType, setBannerType] = React.useState<'PREVIEW' | 'RESULT'>('PREVIEW');
+  const [selectedSigningId, setSelectedSigningId] = React.useState<string>('');
+  const [signingType, setSigningType] = React.useState<'Atleta' | 'Comissão'>('Atleta');
+  const [bannerType, setBannerType] = React.useState<'PREVIEW' | 'RESULT' | 'SIGNING'>('PREVIEW');
   const [activeLayout, setActiveLayout] = useState<BannerLayout>('SCORER');
   const [activeStyle, setActiveStyle] = useState<BannerStyle>('CLASSIC');
   const [highlightedPlayerIds, setHighlightedPlayerIds] = useState<string[]>([]);
   
   // IA States
-  const [aiResult, setAiResult] = useState<AIResponse>({ caption: '', headline: '' });
+  const [aiResult, setAiResult] = useState<AIResponse>({ caption: '', headline: '', slogan: '' });
   const [appliedBannerText, setAppliedBannerText] = useState('');
   const [isAiPanelOpen, setIsAiPanelOpen] = useState(false);
   const [loading, setLoading] = React.useState(false);
@@ -61,9 +64,29 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
     try {
       let result: AIResponse;
       if (bannerType === 'PREVIEW') {
+        if (!selectedMatch) return;
         result = await generateMatchPreview(selectedMatch, players, modality, gender, highlightedPlayersList);
-      } else {
+      } else if (bannerType === 'RESULT') {
+        if (!selectedMatch) return;
         result = await generateMatchSummary(selectedMatch, players, modality, gender, highlightedPlayersList);
+      } else {
+        const signing = signingType === 'Atleta' 
+          ? players.find(p => p.id === selectedSigningId)
+          : staff.find(s => s.id === selectedSigningId);
+        
+        if (!signing) {
+          alert("Selecione um membro para o anúncio.");
+          setLoading(false);
+          return;
+        }
+
+        result = await generateSigningBannerAI(
+          signing.name,
+          signingType === 'Atleta' ? (signing as Player).position : (signing as Staff).role,
+          modality,
+          gender,
+          signingType
+        );
       }
       setAiResult(result);
     } catch (err) {
@@ -74,7 +97,7 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
   };
 
   const applyToBanner = () => {
-    setAppliedBannerText(aiResult.headline);
+    setAppliedBannerText(aiResult.slogan || aiResult.headline);
   };
 
   const handleDownload = async () => {
@@ -207,24 +230,58 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
                   >
                     <option value="PREVIEW">Matchday / Pré-jogo</option>
                     <option value="RESULT">Placar / Final</option>
+                    <option value="SIGNING">Nova Contratação</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Destaques (Contexto IA)</label>
-                <div className="flex flex-wrap gap-2">
-                  {players.map(player => (
-                    <button
-                      key={player.id}
-                      onClick={() => togglePlayerHighlight(player.id)}
-                      className={`px-4 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${highlightedPlayerIds.includes(player.id) ? 'border-blue-600 bg-blue-600 text-white shadow-md' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}
+              {bannerType === 'SIGNING' ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Tipo de Membro</label>
+                    <select 
+                      className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-700 font-bold outline-none cursor-pointer"
+                      value={signingType}
+                      onChange={(e) => {
+                        setSigningType(e.target.value as any);
+                        setSelectedSigningId('');
+                      }}
                     >
-                      {player.number}. {player.name.split(' ')[0]}
-                    </button>
-                  ))}
+                      <option value="Atleta">Atleta</option>
+                      <option value="Comissão">Comissão Técnica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Selecionar Membro</label>
+                    <select 
+                      className="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-slate-700 font-bold outline-none cursor-pointer"
+                      value={selectedSigningId}
+                      onChange={(e) => setSelectedSigningId(e.target.value)}
+                    >
+                      <option value="">Selecione...</option>
+                      {signingType === 'Atleta' 
+                        ? players.map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+                        : staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)
+                      }
+                    </select>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Destaques (Contexto IA)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {players.map(player => (
+                      <button
+                        key={player.id}
+                        onClick={() => togglePlayerHighlight(player.id)}
+                        className={`px-4 py-2 rounded-xl border-2 text-[10px] font-black uppercase transition-all ${highlightedPlayerIds.includes(player.id) ? 'border-blue-600 bg-blue-600 text-white shadow-md' : 'border-slate-100 bg-white text-slate-500 hover:border-slate-200'}`}
+                      >
+                        {player.number}. {player.name.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button 
@@ -295,7 +352,57 @@ const Banners: React.FC<BannersProps> = ({ matches, players, modality, theme, ge
             <div className="relative z-10 h-full flex flex-col justify-between">
               
               {/* RENDERIZAÇÃO POR LAYOUT */}
-              {activeLayout === 'SCORER' && (
+              {bannerType === 'SIGNING' ? (
+                <div className="flex-1 flex flex-col items-center justify-center space-y-8">
+                  <div className="text-center">
+                    <p className="text-sm font-black tracking-[0.5em] opacity-60 mb-2 uppercase">BEM-VINDO AO TIME</p>
+                    <h3 className="text-7xl font-black italic tracking-tighter leading-none mb-4">
+                      {appliedBannerText || 'NOVO REFORÇO'}
+                    </h3>
+                  </div>
+                  
+                  <div className="relative">
+                    <div className="w-72 h-72 rounded-[5rem] bg-white/10 border-8 border-white/20 overflow-hidden shadow-2xl relative z-10">
+                      {(() => {
+                        const signing = signingType === 'Atleta' 
+                          ? players.find(p => p.id === selectedSigningId)
+                          : staff.find(s => s.id === selectedSigningId);
+                        return signing?.photoUrl ? (
+                          <img src={signing.photoUrl} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                            <User size={120} className="opacity-20" />
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div className="absolute -bottom-4 -right-4 bg-white text-slate-900 px-8 py-4 rounded-3xl shadow-2xl z-20 transform rotate-3">
+                      <p className="font-black text-2xl italic uppercase leading-none">
+                        {(() => {
+                          const signing = signingType === 'Atleta' 
+                            ? players.find(p => p.id === selectedSigningId)
+                            : staff.find(s => s.id === selectedSigningId);
+                          return signing?.name.split(' ')[0] || 'NOME';
+                        })()}
+                      </p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mt-1">
+                        {(() => {
+                          const signing = signingType === 'Atleta' 
+                            ? players.find(p => p.id === selectedSigningId)
+                            : staff.find(s => s.id === selectedSigningId);
+                          return signingType === 'Atleta' ? (signing as Player)?.position : (signing as Staff)?.role;
+                        })() || 'POSIÇÃO'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 text-center">
+                    <p className="text-xl font-black italic tracking-widest opacity-80">
+                      {modality.toUpperCase()} • {gender.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+              ) : activeLayout === 'SCORER' && (
                 <>
                   <div className="flex justify-between items-start">
                     {/* Fixed: Accessing teamName from theme categories correctly */}

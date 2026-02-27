@@ -73,6 +73,7 @@ const Roster: React.FC<RosterProps> = ({
   onDeleteStaff
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [positionFilter, setPositionFilter] = useState<PlayerPosition | 'ALL'>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBirthdayModal, setShowBirthdayModal] = useState(false);
   const [birthdayMonth, setBirthdayMonth] = useState(new Date().getMonth());
@@ -162,7 +163,11 @@ const Roster: React.FC<RosterProps> = ({
   });
 
   const list = type === 'PLAYERS' 
-    ? players.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    ? players.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesPosition = positionFilter === 'ALL' || p.position === positionFilter;
+        return matchesSearch && matchesPosition;
+      })
     : staff.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   const resetForm = () => {
@@ -306,7 +311,26 @@ const Roster: React.FC<RosterProps> = ({
           <h2 className="text-2xl font-bold text-slate-900">{type === 'PLAYERS' ? `Elenco ${currentGender}` : `Corpo Técnico ${currentGender}`}</h2>
           <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">{modality} • {list.length} Registros</p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {type === 'PLAYERS' && (
+            <div className="flex bg-white p-1 rounded-xl border shadow-sm">
+              <button 
+                onClick={() => setPositionFilter('ALL')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${positionFilter === 'ALL' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Todos
+              </button>
+              {getPositionOptions().map(pos => (
+                <button 
+                  key={pos}
+                  onClick={() => setPositionFilter(pos)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all ${positionFilter === pos ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          )}
           {type === 'PLAYERS' && (
             <button 
               onClick={() => setShowBirthdayModal(true)}

@@ -49,9 +49,11 @@ const Layout: React.FC<LayoutProps> = ({
 
   useEffect(() => {
     const categoryTheme = theme.categories[currentGender];
-    document.documentElement.style.setProperty('--primary-color', categoryTheme.primary);
-    document.documentElement.style.setProperty('--secondary-color', categoryTheme.secondary);
-    document.documentElement.style.setProperty('--accent-color', categoryTheme.accent);
+    if (categoryTheme) {
+      document.documentElement.style.setProperty('--primary-color', categoryTheme.primary);
+      document.documentElement.style.setProperty('--secondary-color', categoryTheme.secondary);
+      document.documentElement.style.setProperty('--accent-color', categoryTheme.accent);
+    }
   }, [theme, currentGender]);
 
   const navigation = [

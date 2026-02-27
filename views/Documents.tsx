@@ -14,7 +14,10 @@ import {
   FileUp,
   ExternalLink,
   Check,
-  Upload
+  Upload,
+  Clock,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { Player, Staff, TeamDocument, DocumentStatus } from '../types';
 
@@ -22,9 +25,11 @@ interface DocumentsProps {
   players: Player[];
   staff: Staff[];
   onAddDocument?: (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => void;
+  onValidateDocument?: (ownerId: string, ownerType: 'Atleta' | 'Comissão', documentId: string) => void;
 }
 
 interface FlattenedDocument extends TeamDocument {
+  ownerId: string;
   ownerName: string;
   ownerType: 'Atleta' | 'Comissão';
 }
@@ -36,9 +41,11 @@ const DOCUMENT_TYPES = [
   { id: 'RESIDENCIA', label: 'Comprovante de Residência', icon: Home, color: 'text-emerald-600', bg: 'bg-emerald-50' },
 ];
 
-const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) => {
+const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument, onValidateDocument }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [activeTab, setActiveTab] = useState<'PENDING' | 'VALIDATED'>('PENDING');
   const [selectedDoc, setSelectedDoc] = useState<FlattenedDocument | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<FlattenedDocument | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   
@@ -49,13 +56,17 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allDocuments: FlattenedDocument[] = [
-    ...players.flatMap(p => p.documents.map(d => ({ ...d, ownerName: p.name, ownerType: 'Atleta' as const }))),
-    ...staff.flatMap(s => s.documents.map(d => ({ ...d, ownerName: s.name, ownerType: 'Comissão' as const })))
+    ...players.flatMap(p => p.documents.map(d => ({ ...d, ownerId: p.id, ownerName: p.name, ownerType: 'Atleta' as const }))),
+    ...staff.flatMap(s => s.documents.map(d => ({ ...d, ownerId: s.id, ownerName: s.name, ownerType: 'Comissão' as const })))
   ];
 
   const filteredDocs = allDocuments.filter(doc => {
-    return doc.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           doc.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = doc.ownerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         doc.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTab = activeTab === 'PENDING' 
+      ? doc.status === DocumentStatus.AWAITING_VALIDATION || doc.status === DocumentStatus.PENDING
+      : doc.status === DocumentStatus.VALID;
+    return matchesSearch && matchesTab;
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,6 +112,31 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
   };
 
   const formatDate = (dateString?: string) => dateString ? new Date(dateString).toLocaleDateString('pt-BR') : 'N/A';
+
+  const handleViewFile = (doc: FlattenedDocument) => {
+    setViewingDoc(doc);
+  };
+
+  const handleDownloadFile = (doc: FlattenedDocument) => {
+    // Simulação de download real criando um blob
+    const content = `Arquivo de Simulação\nDocumento: ${doc.type}\nProprietário: ${doc.ownerName}\nNúmero: ${doc.documentNumber}\nStatus: ${doc.status}`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${doc.type.replace(/\s+/g, '_')}_${doc.ownerName.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleValidate = (doc: FlattenedDocument) => {
+    if (onValidateDocument) {
+      onValidateDocument(doc.ownerId, doc.ownerType, doc.id);
+      setSelectedDoc(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -158,6 +194,23 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
         ))}
       </div>
 
+      <div className="flex space-x-4 border-b border-slate-200">
+        <button 
+          onClick={() => setActiveTab('PENDING')}
+          className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'PENDING' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Pendentes de Validação
+          {activeTab === 'PENDING' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full"></div>}
+        </button>
+        <button 
+          onClick={() => setActiveTab('VALIDATED')}
+          className={`pb-4 text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'VALIDATED' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          Documentos Validados
+          {activeTab === 'VALIDATED' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full"></div>}
+        </button>
+      </div>
+
       <div className="bg-[#020617] rounded-[2.5rem] shadow-2xl border border-slate-800/60 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -189,7 +242,21 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
                       </div>
                       <div>
                         <p className="text-sm font-bold text-slate-300">{doc.type}</p>
-                        <p className="text-[10px] font-mono text-slate-600">{doc.documentNumber || 'S/N'}</p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-[10px] font-mono text-slate-600">{doc.documentNumber || 'S/N'}</p>
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tighter flex items-center space-x-1 ${
+                            doc.status === DocumentStatus.VALID ? 'bg-emerald-500/10 text-emerald-500' :
+                            doc.status === DocumentStatus.AWAITING_VALIDATION ? 'bg-amber-500/10 text-amber-500' :
+                            doc.status === DocumentStatus.EXPIRED ? 'bg-red-500/10 text-red-500' :
+                            'bg-slate-500/10 text-slate-500'
+                          }`}>
+                            {doc.status === DocumentStatus.VALID && <CheckCircle2 size={10} />}
+                            {doc.status === DocumentStatus.AWAITING_VALIDATION && <Clock size={10} />}
+                            {doc.status === DocumentStatus.EXPIRED && <AlertCircle size={10} />}
+                            {doc.status === DocumentStatus.PENDING && <Clock size={10} />}
+                            <span>{doc.status}</span>
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -201,7 +268,10 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
                       >
                         <Eye size={18} />
                       </button>
-                      <button className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all">
+                      <button 
+                        onClick={() => handleDownloadFile(doc)}
+                        className="p-2 bg-slate-800 text-slate-400 hover:text-white rounded-xl transition-all"
+                      >
                         <Download size={18} />
                       </button>
                     </div>
@@ -324,11 +394,69 @@ const Documents: React.FC<DocumentsProps> = ({ players, staff, onAddDocument }) 
                     <FileText className="text-blue-400" size={32} />
                  </div>
               </div>
-              <div className="p-8 border-t flex space-x-3">
-                 <button className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase flex items-center justify-center space-x-2"><ExternalLink size={18} /> <span>Ver Arquivo</span></button>
-                 <button className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm uppercase flex items-center justify-center space-x-2"><Download size={18} /> <span>Baixar</span></button>
+              <div className="p-8 border-t flex flex-col space-y-3">
+                 {selectedDoc.status === DocumentStatus.AWAITING_VALIDATION && (
+                   <button 
+                    onClick={() => handleValidate(selectedDoc)}
+                    className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black text-sm uppercase flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 hover:bg-emerald-700 transition-all"
+                   >
+                     <Check size={18} /> 
+                     <span>Validar Documento</span>
+                   </button>
+                 )}
+                 <div className="flex space-x-3">
+                    <button 
+                      onClick={() => handleViewFile(selectedDoc)}
+                      className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black text-sm uppercase flex items-center justify-center space-x-2 hover:bg-slate-800 transition-all"
+                    >
+                      <ExternalLink size={18} /> 
+                      <span>Ver Arquivo</span>
+                    </button>
+                    <button 
+                      onClick={() => handleDownloadFile(selectedDoc)}
+                      className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black text-sm uppercase flex items-center justify-center space-x-2 hover:bg-slate-200 transition-all"
+                    >
+                      <Download size={18} /> 
+                      <span>Baixar</span>
+                    </button>
+                 </div>
               </div>
            </div>
+        </div>
+      )}
+
+      {viewingDoc && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/95 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className="max-w-4xl w-full flex flex-col items-center">
+            <div className="w-full flex justify-between items-center mb-6 text-white">
+              <div>
+                <h3 className="text-2xl font-black uppercase tracking-tighter">{viewingDoc.type}</h3>
+                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{viewingDoc.ownerName}</p>
+              </div>
+              <button onClick={() => setViewingDoc(null)} className="p-3 bg-white/10 rounded-2xl hover:bg-white/20 transition-all"><X size={24} /></button>
+            </div>
+            <div className="w-full aspect-[1/1.414] bg-white rounded-[3rem] shadow-2xl overflow-hidden relative group">
+              <img 
+                src={`https://picsum.photos/seed/${viewingDoc.id}/800/1131`} 
+                alt="Document Preview" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 to-transparent"></div>
+              <div className="absolute bottom-10 left-10 right-10 flex justify-between items-end">
+                <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-white/20 shadow-xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Assinatura Digital</p>
+                  <p className="font-mono text-xs text-slate-900">AUTH-KEY-{viewingDoc.id.toUpperCase()}</p>
+                </div>
+                <button 
+                  onClick={() => handleDownloadFile(viewingDoc)}
+                  className="p-5 bg-blue-600 text-white rounded-2xl shadow-xl shadow-blue-600/30 hover:bg-blue-500 transition-all active:scale-95"
+                >
+                  <Download size={24} />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

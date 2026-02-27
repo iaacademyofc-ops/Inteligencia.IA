@@ -54,6 +54,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleValidateDocument = (ownerId: string, ownerType: 'Atleta' | 'Comissão', documentId: string) => {
+    if (ownerType === 'Atleta') {
+      setPlayers(prev => prev.map(p => p.id === ownerId ? {
+        ...p,
+        documents: p.documents.map(d => d.id === documentId ? { ...d, status: DocumentStatus.VALID } : d)
+      } : p));
+    } else {
+      setStaff(prev => prev.map(s => s.id === ownerId ? {
+        ...s,
+        documents: s.documents.map(d => d.id === documentId ? { ...d, status: DocumentStatus.VALID } : d)
+      } : s));
+    }
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'DASHBOARD':
@@ -67,15 +81,15 @@ const App: React.FC = () => {
       case 'MATCHES':
         return <Matches matches={filteredMatches} onAddMatch={handleAddMatch} onUpdateMatch={handleUpdateMatch} players={filteredPlayers} currentModality={modality} currentGender={gender} theme={theme} />;
       case 'BANNERS':
-        return <Banners matches={filteredMatches} players={filteredPlayers} modality={modality} theme={theme} gender={gender} />;
+        return <Banners matches={filteredMatches} players={filteredPlayers} staff={filteredStaff} modality={modality} theme={theme} gender={gender} />;
       case 'DOCUMENTS':
-        return <Documents players={filteredPlayers} staff={filteredStaff} onAddDocument={handleAddDocument} />;
+        return <Documents players={filteredPlayers} staff={filteredStaff} onAddDocument={handleAddDocument} onValidateDocument={handleValidateDocument} />;
       case 'SETTINGS':
         return <Settings theme={theme} onThemeChange={setTheme} currentGender={gender} />;
       case 'ATHLETE_PORTAL':
         return <AthletePortal players={filteredPlayers} matches={filteredMatches} onAddDocument={handleAddDocument} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} />;
       case 'STAFF_PORTAL':
-        return <StaffPortal staff={filteredStaff} players={filteredPlayers} matches={filteredMatches} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} modality={modality} />;
+        return <StaffPortal staff={filteredStaff} players={filteredPlayers} matches={filteredMatches} onAddDocument={handleAddDocument} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} modality={modality} />;
       case 'STATS':
         return (
           <div className="space-y-6">

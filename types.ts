@@ -40,7 +40,8 @@ export enum MatchType {
 export enum DocumentStatus {
   PENDING = 'Pendente',
   VALID = 'Válido',
-  EXPIRED = 'Expirado'
+  EXPIRED = 'Expirado',
+  AWAITING_VALIDATION = 'Aguardando Validação'
 }
 
 export interface Achievement {

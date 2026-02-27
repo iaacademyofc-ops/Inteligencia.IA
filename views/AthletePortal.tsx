@@ -43,7 +43,7 @@ import {
   Utensils
 } from 'lucide-react';
 import { Player, Modality, Match, DocumentStatus, TeamDocument, TeamTheme, TeamGender } from '../types';
-import { generateAthletePerformanceAI, generateScoutingAI, generateTrainingPlanAI, AthleteFeedback, TrainingPlan } from '../services/geminiService';
+import { generateAthletePerformanceAI, generateScoutingAI, generateTrainingPlanAI, generateBirthdayMessageAI, AthleteFeedback, TrainingPlan } from '../services/geminiService';
 
 interface AthletePortalProps {
   players: Player[];
@@ -76,6 +76,7 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDo
   const [aiFeedback, setAiFeedback] = useState<AthleteFeedback | null>(null);
   const [trainingPlan, setTrainingPlan] = useState<TrainingPlan | null>(null);
   const [scoutingTip, setScoutingTip] = useState<string>('');
+  const [birthdayMessage, setBirthdayMessage] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   // UI States
@@ -105,14 +106,28 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDo
   const loadAIInsights = async (player: Player) => {
     setIsAiLoading(true);
     try {
+      // Check for birthday
+      const today = new Date();
+      const birthDate = new Date(player.birthDate);
+      const isBirthday = today.getDate() === birthDate.getDate() && today.getMonth() === birthDate.getMonth();
+
       // Paraleliza as chamadas de IA para maior performance
-      const [feedback, plan] = await Promise.all([
+      const promises: Promise<any>[] = [
         generateAthletePerformanceAI(player, Modality.FOOTBALL),
         generateTrainingPlanAI(player)
-      ]);
+      ];
+
+      if (isBirthday) {
+        promises.push(generateBirthdayMessageAI(player));
+      }
+
+      const results = await Promise.all(promises);
       
-      setAiFeedback(feedback);
-      setTrainingPlan(plan);
+      setAiFeedback(results[0]);
+      setTrainingPlan(results[1]);
+      if (isBirthday) {
+        setBirthdayMessage(results[2]);
+      }
       
       const nextMatch = matches.find(m => !m.isFinished);
       if (nextMatch) {
@@ -138,7 +153,7 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDo
     const newDoc: TeamDocument = {
       id: Math.random().toString(36).substr(2, 9),
       type: formDocType,
-      status: DocumentStatus.PENDING,
+      status: DocumentStatus.AWAITING_VALIDATION,
       issueDate: new Date().toISOString().split('T')[0],
       documentNumber: 'AT-' + Math.floor(Math.random() * 10000)
     };
@@ -278,6 +293,25 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDo
       <main className="max-w-7xl mx-auto px-6 -mt-12 relative z-20">
          {activeTab === 'DASHBOARD' && (
            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+              {birthdayMessage && (
+                <div className="bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-1 rounded-[2.5rem] shadow-2xl animate-bounce">
+                  <div className="bg-white rounded-[2.4rem] p-8 flex items-center justify-between">
+                    <div className="flex items-center space-x-6">
+                      <div className="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center text-pink-600">
+                        <Sparkles size={32} />
+                      </div>
+                      <div>
+                        <h4 className="text-xl font-black text-slate-900 tracking-tight">FELIZ ANIVERSÁRIO! 🎂</h4>
+                        <p className="text-sm font-bold text-slate-600 mt-1 italic leading-relaxed">"{birthdayMessage}"</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setBirthdayMessage('')} className="p-2 text-slate-300 hover:text-slate-900 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                  {/* IA COACH CARD */}
                  <div className="lg:col-span-2 bg-white rounded-[3.5rem] p-10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] border border-blue-50 relative overflow-hidden group">
@@ -614,7 +648,10 @@ const AthletePortal: React.FC<AthletePortalProps> = ({ players, matches, onAddDo
               </div>
 
               <div className="p-10 border-t bg-white flex space-x-4">
-                 <button className="flex-1 bg-slate-900 text-white py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl">
+                 <button 
+                  onClick={() => alert(`Baixando arquivo: ${selectedViewDoc.type}.pdf\n(Simulação de download)`)}
+                  className="flex-1 bg-slate-900 text-white py-5 rounded-[1.8rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center space-x-3 active:scale-95 transition-all shadow-xl"
+                 >
                     <Download size={20} />
                     <span>Baixar PDF</span>
                  </button>

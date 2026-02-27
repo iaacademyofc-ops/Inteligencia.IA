@@ -6,6 +6,7 @@ import { Match, Player, Modality, TeamGender } from "../types.ts";
 export interface AIResponse {
   caption: string;
   headline: string;
+  slogan?: string;
 }
 
 export interface AthleteFeedback {
@@ -186,24 +187,61 @@ export const generateScoutingAI = async (player: Player, opponent: string, modal
   }
 };
 
-export const generateMatchPreview = async (match: Match, squad: Player[], modality: Modality, gender: TeamGender, highlightedPlayers: Player[]): Promise<AIResponse> => {
+export const generateSigningBannerAI = async (
+  name: string,
+  roleOrPosition: string,
+  modality: Modality,
+  gender: TeamGender,
+  type: 'Atleta' | 'Comissão'
+): Promise<AIResponse> => {
   const ai = getAI();
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Pré-jogo contra ${match.opponent}.`,
+      contents: `Gere um anúncio de contratação para ${type === 'Atleta' ? 'o atleta' : 'o membro da comissão'} ${name}. Posição/Função: ${roleOrPosition}. Modalidade: ${modality}. Categoria: ${gender}.`,
       config: {
+        systemInstruction: "Você é um especialista em marketing esportivo. Gere um objeto JSON com: 'caption' (legenda para redes sociais), 'headline' (título de impacto como 'NOVO REFORÇO' ou 'BEM-VINDO') e 'slogan' (uma frase curta de até 5 palavras sobre a chegada do profissional).",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
-          properties: { caption: { type: Type.STRING }, headline: { type: Type.STRING } },
-          required: ["caption", "headline"]
+          properties: { 
+            caption: { type: Type.STRING }, 
+            headline: { type: Type.STRING },
+            slogan: { type: Type.STRING }
+          },
+          required: ["caption", "headline", "slogan"]
         }
       }
     });
     return JSON.parse(response.text || '{}');
   } catch (error) {
-    return { caption: "Matchday!", headline: "HOJE TEM JOGO" };
+    return { caption: "Bem-vindo ao time!", headline: "NOVO REFORÇO", slogan: "JUNTOS PELA VITÓRIA" };
+  }
+};
+
+export const generateMatchPreview = async (match: Match, squad: Player[], modality: Modality, gender: TeamGender, highlightedPlayers: Player[]): Promise<AIResponse> => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Gere um preview de pré-jogo contra ${match.opponent}. Local: ${match.venue}. Data: ${match.date}. Destaques: ${highlightedPlayers.map(p => p.name).join(', ')}.`,
+      config: {
+        systemInstruction: "Você é um especialista em marketing esportivo. Gere um objeto JSON com: 'caption' (legenda para redes sociais), 'headline' (título de impacto) e 'slogan' (uma frase curta e poderosa de até 5 palavras para o banner).",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { 
+            caption: { type: Type.STRING }, 
+            headline: { type: Type.STRING },
+            slogan: { type: Type.STRING }
+          },
+          required: ["caption", "headline", "slogan"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    return { caption: "Matchday!", headline: "HOJE TEM JOGO", slogan: "FORÇA E HONRA" };
   }
 };
 
@@ -212,18 +250,23 @@ export const generateMatchSummary = async (match: Match, players: Player[], moda
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Resultado: ${match.scoreHome}x${match.scoreAway}.`,
+      contents: `Gere um resumo pós-jogo contra ${match.opponent}. Placar: ${match.scoreHome}x${match.scoreAway}. Destaques: ${highlightedPlayers.map(p => p.name).join(', ')}.`,
       config: {
+        systemInstruction: "Você é um especialista em marketing esportivo. Gere um objeto JSON com: 'caption' (legenda para redes sociais), 'headline' (título de impacto) e 'slogan' (uma frase curta e poderosa de até 5 palavras para o banner de resultado).",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
-          properties: { caption: { type: Type.STRING }, headline: { type: Type.STRING } },
-          required: ["caption", "headline"]
+          properties: { 
+            caption: { type: Type.STRING }, 
+            headline: { type: Type.STRING },
+            slogan: { type: Type.STRING }
+          },
+          required: ["caption", "headline", "slogan"]
         }
       }
     });
     return JSON.parse(response.text || '{}');
   } catch (error) {
-    return { caption: "Fim de jogo.", headline: "RESULTADO FINAL" };
+    return { caption: "Fim de jogo.", headline: "RESULTADO FINAL", slogan: "MISSÃO CUMPRIDA" };
   }
 };
