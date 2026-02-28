@@ -1,23 +1,33 @@
 
 import React, { useState } from 'react';
-import { Trophy, Lock, User, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Trophy, Lock, Mail, Eye, EyeOff, ShieldCheck, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase.ts';
 
-interface LoginProps {
-  onLogin: (password: string) => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') { // Simple hardcoded password for demo
-      onLogin(password);
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 3000);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+      }
+    } catch (err) {
+      setError('Ocorreu um erro ao tentar entrar. Verifique sua conexão.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,16 +49,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Usuário</label>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">E-mail</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-400 transition-colors">
-                  <User size={18} />
+                  <Mail size={18} />
                 </div>
                 <input 
-                  type="text" 
-                  defaultValue="admin"
-                  disabled
-                  className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all cursor-not-allowed opacity-60"
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                  className="w-full bg-slate-800/50 border border-slate-700 text-white rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -64,8 +76,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  required
                   className={`w-full bg-slate-800/50 border ${error ? 'border-red-500' : 'border-slate-700'} text-white rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
-                  autoFocus
                 />
                 <button 
                   type="button"
@@ -76,16 +88,23 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
               </div>
               {error && (
-                <p className="text-red-400 text-[10px] font-bold mt-2 ml-1 uppercase tracking-wider animate-pulse">Senha incorreta. Tente novamente.</p>
+                <p className="text-red-400 text-[10px] font-bold mt-2 ml-1 uppercase tracking-wider animate-pulse">{error}</p>
               )}
             </div>
 
             <button 
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-[0.98] flex items-center justify-center space-x-2 group disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <span>Acessar Painel</span>
-              <ShieldCheck size={20} className="group-hover:translate-x-1 transition-transform" />
+              {loading ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <span>Acessar Painel</span>
+                  <ShieldCheck size={20} className="group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
 

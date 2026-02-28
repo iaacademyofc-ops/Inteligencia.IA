@@ -16,19 +16,34 @@ import { Player, Staff, Match, ViewType, DocumentStatus, Modality, TeamTheme, Te
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('DASHBOARD');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return localStorage.getItem('tm_auth') === 'true';
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [modality, setModality] = useState<Modality>(Modality.FOOTBALL);
   const [gender, setGender] = useState<TeamGender>(TeamGender.MALE);
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
   
   useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
     const checkSupabase = async () => {
-      const { data, error } = await supabase.from('teams').select('count').limit(1);
-      if (!error) setIsSupabaseConnected(true);
+      try {
+        const { data, error } = await supabase.from('teams').select('count').limit(1);
+        if (!error) setIsSupabaseConnected(true);
+      } catch (e) {
+        console.error('Supabase connection error:', e);
+      }
     };
+    
     checkSupabase();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const [theme, setTheme] = useState<TeamTheme>({
@@ -60,14 +75,8 @@ const App: React.FC = () => {
   const handleAddMatch = (newMatch: Match) => setMatches(prev => [...prev, newMatch]);
   const handleUpdateMatch = (updatedMatch: Match) => setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-    localStorage.setItem('tm_auth', 'true');
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('tm_auth');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentView('DASHBOARD');
   };
 
@@ -141,7 +150,7 @@ const App: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+    return <Login />;
   }
 
   return (
