@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase.ts';
 import Layout from './components/Layout.tsx';
+import Login from './components/Login.tsx';
 import Dashboard from './views/Dashboard.tsx';
 import Roster from './views/Roster.tsx';
 import Matches from './views/Matches.tsx';
@@ -14,9 +16,21 @@ import { Player, Staff, Match, ViewType, DocumentStatus, Modality, TeamTheme, Te
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('DASHBOARD');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('tm_auth') === 'true';
+  });
   const [modality, setModality] = useState<Modality>(Modality.FOOTBALL);
   const [gender, setGender] = useState<TeamGender>(TeamGender.MALE);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
   
+  useEffect(() => {
+    const checkSupabase = async () => {
+      const { data, error } = await supabase.from('teams').select('count').limit(1);
+      if (!error) setIsSupabaseConnected(true);
+    };
+    checkSupabase();
+  }, []);
+
   const [theme, setTheme] = useState<TeamTheme>({
     categories: {
       [TeamGender.MALE]: { teamName: 'TeamMaster Pro', primary: '#1e3a8a', secondary: '#0f172a', accent: '#3b82f6', crestUrl: undefined },
@@ -45,6 +59,17 @@ const App: React.FC = () => {
   const handleDeleteStaff = (id: string) => setStaff(prev => prev.filter(s => s.id !== id));
   const handleAddMatch = (newMatch: Match) => setMatches(prev => [...prev, newMatch]);
   const handleUpdateMatch = (updatedMatch: Match) => setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('tm_auth', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('tm_auth');
+    setCurrentView('DASHBOARD');
+  };
 
   const handleAddDocument = (ownerId: string, ownerType: 'Atleta' | 'Comissão', document: TeamDocument) => {
     if (ownerType === 'Atleta') {
@@ -115,6 +140,10 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <Layout 
       currentView={currentView} 
@@ -124,6 +153,8 @@ const App: React.FC = () => {
       currentGender={gender}
       onGenderChange={setGender}
       theme={theme}
+      isSupabaseConnected={isSupabaseConnected}
+      onLogout={handleLogout}
     >
       {renderContent()}
     </Layout>

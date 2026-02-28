@@ -118,6 +118,7 @@ export interface CategoryTheme {
 }
 
 export interface TeamTheme {
+  id?: string;
   categories: Record<TeamGender, CategoryTheme>;
   clubDocuments: TeamDocument[];
 }

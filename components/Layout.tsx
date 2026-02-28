@@ -20,7 +20,9 @@ import {
   Share2,
   Hash,
   Briefcase,
-  Map
+  Map,
+  Database,
+  LogOut
 } from 'lucide-react';
 import { ViewType, Modality, TeamTheme, TeamGender } from '../types.ts';
 
@@ -33,6 +35,8 @@ interface LayoutProps {
   currentGender: TeamGender;
   onGenderChange: (gender: TeamGender) => void;
   theme: TeamTheme;
+  isSupabaseConnected?: boolean;
+  onLogout: () => void;
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
@@ -43,9 +47,12 @@ const Layout: React.FC<LayoutProps> = ({
   onModalityChange, 
   currentGender,
   onGenderChange,
-  theme 
+  theme,
+  isSupabaseConnected = false,
+  onLogout
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
+  const [isSharing, setIsSharing] = React.useState(false);
 
   useEffect(() => {
     const categoryTheme = theme.categories[currentGender];
@@ -68,14 +75,31 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'SETTINGS', name: 'Personalizar Clube', icon: Palette },
   ];
 
-  const handleShare = (portal: string) => {
+  const handleShare = async (portal: string) => {
+    if (isSharing) return;
+
     const url = window.location.href;
     const text = `Acesse o ${portal} do ${theme.categories[currentGender].teamName}`;
+    
     if (navigator.share) {
-      navigator.share({ title: 'TeamMaster Pro', text, url });
+      try {
+        setIsSharing(true);
+        await navigator.share({ title: 'TeamMaster Pro', text, url });
+      } catch (error) {
+        // Ignore AbortError which happens when user cancels sharing
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing:', error);
+        }
+      } finally {
+        setIsSharing(false);
+      }
     } else {
-      navigator.clipboard.writeText(`${text}: ${url}`);
-      alert('Link copiado para a área de transferência!');
+      try {
+        await navigator.clipboard.writeText(`${text}: ${url}`);
+        alert('Link copiado para a área de transferência!');
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
     }
   };
 
@@ -155,7 +179,8 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
               <button 
                 onClick={() => handleShare('Portal do Atleta')}
-                className="p-3 bg-white/5 rounded-xl hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all"
+                disabled={isSharing}
+                className={`p-3 bg-white/5 rounded-xl border border-white/10 text-white/60 transition-all ${isSharing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white'}`}
               >
                 <Share2 size={14} />
               </button>
@@ -171,7 +196,8 @@ const Layout: React.FC<LayoutProps> = ({
               </button>
               <button 
                 onClick={() => handleShare('Portal da Comissão Técnica')}
-                className="p-3 bg-white/5 rounded-xl hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all"
+                disabled={isSharing}
+                className={`p-3 bg-white/5 rounded-xl border border-white/10 text-white/60 transition-all ${isSharing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10 hover:text-white'}`}
               >
                 <Share2 size={14} />
               </button>
@@ -179,11 +205,19 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
         </nav>
 
-        <div className="p-6">
+        <div className="p-6 space-y-3">
           <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/5">
             <p className="text-[10px] font-bold text-white/40 uppercase mb-1">Dpt. {currentGender}</p>
             <p className="text-xs font-bold text-white">{currentModality}</p>
           </div>
+          
+          <button 
+            onClick={onLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-white/60 hover:text-white hover:bg-red-500/20 transition-all group border border-transparent hover:border-red-500/30"
+          >
+            <LogOut size={18} className="group-hover:text-red-400 transition-colors" />
+            <span className="text-sm font-bold">Sair do Sistema</span>
+          </button>
         </div>
       </aside>
 
@@ -213,6 +247,12 @@ const Layout: React.FC<LayoutProps> = ({
           </div>
 
           <div className="flex items-center space-x-6 self-end xl:self-auto">
+            {isSupabaseConnected && (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <Database size={14} className="text-emerald-500" />
+                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Supabase Online</span>
+              </div>
+            )}
             <button className="relative p-2 text-slate-400 hover:dynamic-text-accent hover:bg-slate-50 rounded-xl transition-all">
               <Bell size={20} />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
