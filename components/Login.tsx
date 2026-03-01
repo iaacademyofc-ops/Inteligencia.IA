@@ -1,11 +1,14 @@
 
 import React, { useState } from 'react';
-import { Trophy, Lock, Mail, Eye, EyeOff, ShieldCheck, Loader2 } from 'lucide-react';
+import { Trophy, Lock, Mail, Eye, EyeOff, ShieldCheck, Loader2, Users, UserCircle, Shield } from 'lucide-react';
 import { supabase } from '../lib/supabase.ts';
+
+type UserRole = 'ADMIN' | 'STAFF' | 'ATHLETE';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<UserRole>('ADMIN');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,12 +27,56 @@ const Login: React.FC = () => {
       if (authError) {
         setError(authError.message);
       }
+      // Note: Role handling would typically be done via a profiles table 
+      // linked to the auth.uid(), but for now we're just differentiating the UI.
     } catch (err) {
       setError('Ocorreu um erro ao tentar entrar. Verifique sua conexão.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth-callback.html`,
+          skipBrowserRedirect: true,
+          data: {
+            role: role // Passa a função selecionada para o metadado do usuário
+          }
+        },
+      });
+
+      if (authError) {
+        setError(authError.message);
+        return;
+      }
+
+      if (data?.url) {
+        const authWindow = window.open(data.url, 'google_login', 'width=600,height=700');
+        
+        if (!authWindow) {
+          setError('O bloqueador de popups impediu a abertura da janela. Por favor, permita popups para este site.');
+        }
+      }
+    } catch (err) {
+      setError('Erro ao conectar com Google.');
+    }
+  };
+
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'SUPABASE_AUTH_SUCCESS') {
+        // The popup has closed and notified us. 
+        // Supabase auth listener in App.tsx will pick up the session change.
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden">
@@ -45,6 +92,30 @@ const Login: React.FC = () => {
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">TeamMaster <span className="text-blue-400">Pro</span></h1>
             <p className="text-slate-400 text-sm mt-1">Gestão Esportiva Profissional</p>
+          </div>
+
+          <div className="flex p-1 bg-slate-800/50 rounded-xl mb-6 border border-white/5">
+            <button 
+              onClick={() => setRole('ADMIN')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'ADMIN' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Shield size={14} />
+              <span>Admin</span>
+            </button>
+            <button 
+              onClick={() => setRole('STAFF')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'STAFF' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Users size={14} />
+              <span>Comissão</span>
+            </button>
+            <button 
+              onClick={() => setRole('ATHLETE')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'ATHLETE' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+              <UserCircle size={14} />
+              <span>Atleta</span>
+            </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -101,10 +172,28 @@ const Login: React.FC = () => {
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <>
-                  <span>Acessar Painel</span>
+                  <span>Entrar como {role === 'ADMIN' ? 'Administrador' : role === 'STAFF' ? 'Comissão' : 'Atleta'}</span>
                   <ShieldCheck size={20} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
+            </button>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-slate-900 px-2 text-slate-500 font-bold tracking-widest">Ou continue com</span>
+              </div>
+            </div>
+
+            <button 
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-3 shadow-xl"
+            >
+              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+              <span>Entrar com Google</span>
             </button>
           </form>
 

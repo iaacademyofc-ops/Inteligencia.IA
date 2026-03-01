@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Autenticando...</title>
+</head>
+<body>
+    <script>
+        // This page is used as the redirect_uri for OAuth popups.
+        // It sends a message back to the opener window and then closes itself.
+        if (window.opener) {
+            window.opener.postMessage({ type: 'SUPABASE_AUTH_SUCCESS' }, '*');
+            window.close();
+        } else {
+            // If opened directly, just redirect to home
+            window.location.href = '/';
+        }
+    </script>
+    <p>Autenticação concluída. Esta janela fechará automaticamente.</p>
+</body>
+</html>
