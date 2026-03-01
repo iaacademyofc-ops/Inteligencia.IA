@@ -123,4 +123,4 @@ export interface TeamTheme {
   clubDocuments: TeamDocument[];
 }
 
-export type ViewType = 'DASHBOARD' | 'PLAYERS' | 'STAFF' | 'MATCHES' | 'DOCUMENTS' | 'BANNERS' | 'STATS' | 'OFFICIAL_NUMBERS' | 'ATHLETE_PORTAL' | 'STAFF_PORTAL' | 'SETTINGS';
+export type ViewType = 'DASHBOARD' | 'PLAYERS' | 'STAFF' | 'MATCHES' | 'DOCUMENTS' | 'BANNERS' | 'STATS' | 'OFFICIAL_NUMBERS' | 'ATHLETE_PORTAL' | 'STAFF_PORTAL' | 'SETTINGS' | 'AI_ASSISTANT';

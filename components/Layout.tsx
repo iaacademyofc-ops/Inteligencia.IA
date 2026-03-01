@@ -22,7 +22,8 @@ import {
   Briefcase,
   Map,
   Database,
-  LogOut
+  LogOut,
+  Sparkles
 } from 'lucide-react';
 import { ViewType, Modality, TeamTheme, TeamGender } from '../types.ts';
 
@@ -72,6 +73,7 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'DOCUMENTS', name: 'Central de Docs', icon: FileText },
     { id: 'STATS', name: 'Resultados', icon: Trophy },
     { id: 'BANNERS', name: 'Marketing', icon: ImageIcon },
+    { id: 'AI_ASSISTANT', name: 'Assistente IA', icon: Sparkles },
     { id: 'SETTINGS', name: 'Personalizar Clube', icon: Palette },
   ];
 

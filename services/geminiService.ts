@@ -31,7 +31,7 @@ export interface StaffMotivation {
   application: string;
 }
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export const generateInstitutionalDocumentAI = async (
   docType: string,
@@ -268,5 +268,39 @@ export const generateMatchSummary = async (match: Match, players: Player[], moda
     return JSON.parse(response.text || '{}');
   } catch (error) {
     return { caption: "Fim de jogo.", headline: "RESULTADO FINAL", slogan: "MISSÃO CUMPRIDA" };
+  }
+};
+
+export const generateTeamAnalysis = async (teamData: any) => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analise os seguintes dados do time e forneça insights estratégicos, sugestões de treino e um resumo de desempenho: ${JSON.stringify(teamData)}`,
+      config: {
+        systemInstruction: "Você é um consultor técnico de futebol profissional. Sua análise deve ser técnica, motivadora e prática. Responda em Português do Brasil.",
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error generating team analysis:", error);
+    return "Desculpe, não consegui gerar a análise no momento.";
+  }
+};
+
+export const chatWithAssistant = async (message: string, context: any) => {
+  const ai = getAI();
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Mensagem do usuário: ${message}\nContexto do time: ${JSON.stringify(context)}`,
+      config: {
+        systemInstruction: "Você é o Assistente Inteligente do TeamMaster Pro. Ajude o treinador ou gestor com dúvidas sobre o time, táticas, regras ou gestão. Seja direto e profissional. Responda em Português do Brasil.",
+      }
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error in chat with assistant:", error);
+    return "Ocorreu um erro ao processar sua mensagem.";
   }
 };

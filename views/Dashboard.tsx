@@ -7,11 +7,12 @@ interface DashboardProps {
   players: Player[];
   matches: Match[];
   onViewChange: (view: ViewType) => void;
+  onGenderChange: (gender: TeamGender) => void;
   theme: TeamTheme;
   gender: TeamGender;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange, theme, gender }) => {
+const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange, onGenderChange, theme, gender }) => {
   const upcomingMatches = matches.filter(m => !m.isFinished).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const recentResults = matches.filter(m => m.isFinished).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   
@@ -22,14 +23,44 @@ const Dashboard: React.FC<DashboardProps> = ({ players, matches, onViewChange, t
   return (
     <div className="space-y-8">
       {/* Header Welcome */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bem-vindo, Coach!</h2>
-          <p className="text-slate-500 font-medium">Você está no comando do <strong className="dynamic-text-primary">{currentCategory.teamName}</strong>.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center space-x-6">
+          <div 
+            className="w-20 h-20 rounded-[2rem] bg-white shadow-xl flex items-center justify-center p-3 border border-slate-100 group hover:scale-105 transition-transform cursor-pointer"
+            onClick={() => onViewChange('SETTINGS')}
+          >
+            {currentCategory.crestUrl ? (
+              <img src={currentCategory.crestUrl} className="w-full h-full object-contain" alt="Escudo" />
+            ) : (
+              <Shield size={40} className="dynamic-text-primary" />
+            )}
+          </div>
+          <div>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Bem-vindo, Coach!</h2>
+            <p className="text-slate-500 font-medium">Você está no comando do <strong className="dynamic-text-primary">{currentCategory.teamName}</strong>.</p>
+          </div>
         </div>
-        <div className="bg-white px-4 py-2 rounded-xl shadow-sm border flex items-center space-x-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Sistema Online</span>
+        
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center bg-white p-1 rounded-2xl shadow-sm border border-slate-200">
+            {Object.values(TeamGender).map((g) => (
+              <button
+                key={g}
+                onClick={() => onGenderChange(g)}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  gender === g 
+                    ? 'bg-slate-900 text-white shadow-lg' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-xs font-bold text-slate-600 uppercase tracking-widest">Sistema Online</span>
+          </div>
         </div>
       </div>
 

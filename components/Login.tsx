@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Trophy, Lock, Mail, Eye, EyeOff, ShieldCheck, Loader2, Users, UserCircle, Shield } from 'lucide-react';
+import { Trophy, Lock, Mail, Eye, EyeOff, ShieldCheck, Loader2, Users, UserCircle, Shield, UserPlus, LogIn } from 'lucide-react';
 import { supabase } from '../lib/supabase.ts';
 
 type UserRole = 'ADMIN' | 'STAFF' | 'ATHLETE';
@@ -12,71 +12,69 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (isRegistering) {
+        // Validação de tamanho de senha
+        if (password.length < 6) {
+          setError('A senha deve ter pelo menos 6 caracteres.');
+          setLoading(false);
+          return;
+        }
 
-      if (authError) {
-        setError(authError.message);
+        // Validação de código para Admin
+        if (role === 'ADMIN') {
+          const AUTHORIZED_CODE = 'ADMIN123'; // Em produção, use process.env.VITE_ADMIN_CODE
+          if (adminCode !== AUTHORIZED_CODE) {
+            setError('Código de autorização inválido.');
+            setLoading(false);
+            return;
+          }
+        }
+
+        const { error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              role: role,
+            },
+          },
+        });
+
+        if (authError) {
+          setError(authError.message);
+        } else {
+          setSuccessMessage('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar.');
+          // Limpar campos após cadastro
+          setEmail('');
+          setPassword('');
+        }
+      } else {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (authError) {
+          setError(authError.message);
+        }
       }
-      // Note: Role handling would typically be done via a profiles table 
-      // linked to the auth.uid(), but for now we're just differentiating the UI.
     } catch (err) {
-      setError('Ocorreu um erro ao tentar entrar. Verifique sua conexão.');
+      setError('Ocorreu um erro. Verifique sua conexão.');
     } finally {
       setLoading(false);
     }
   };
-
-  const handleGoogleLogin = async () => {
-    setError(null);
-    try {
-      const { data, error: authError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth-callback.html`,
-          skipBrowserRedirect: true,
-          data: {
-            role: role // Passa a função selecionada para o metadado do usuário
-          }
-        },
-      });
-
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-
-      if (data?.url) {
-        const authWindow = window.open(data.url, 'google_login', 'width=600,height=700');
-        
-        if (!authWindow) {
-          setError('O bloqueador de popups impediu a abertura da janela. Por favor, permita popups para este site.');
-        }
-      }
-    } catch (err) {
-      setError('Erro ao conectar com Google.');
-    }
-  };
-
-  React.useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'SUPABASE_AUTH_SUCCESS') {
-        // The popup has closed and notified us. 
-        // Supabase auth listener in App.tsx will pick up the session change.
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 relative overflow-hidden">
@@ -96,21 +94,30 @@ const Login: React.FC = () => {
 
           <div className="flex p-1 bg-slate-800/50 rounded-xl mb-6 border border-white/5">
             <button 
-              onClick={() => setRole('ADMIN')}
+              onClick={() => {
+                setRole('ADMIN');
+                setAdminCode('');
+              }}
               className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'ADMIN' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
             >
               <Shield size={14} />
               <span>Admin</span>
             </button>
             <button 
-              onClick={() => setRole('STAFF')}
+              onClick={() => {
+                setRole('STAFF');
+                setAdminCode('');
+              }}
               className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'STAFF' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
             >
               <Users size={14} />
               <span>Comissão</span>
             </button>
             <button 
-              onClick={() => setRole('ATHLETE')}
+              onClick={() => {
+                setRole('ATHLETE');
+                setAdminCode('');
+              }}
               className={`flex-1 flex items-center justify-center space-x-2 py-2 rounded-lg text-xs font-bold transition-all ${role === 'ATHLETE' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
             >
               <UserCircle size={14} />
@@ -148,7 +155,7 @@ const Login: React.FC = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className={`w-full bg-slate-800/50 border ${error ? 'border-red-500' : 'border-slate-700'} text-white rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
+                  className={`w-full bg-slate-800/50 border ${error && !adminCode ? 'border-red-500' : 'border-slate-700'} text-white rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
                 />
                 <button 
                   type="button"
@@ -158,8 +165,40 @@ const Login: React.FC = () => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+            </div>
+
+            {isRegistering && role === 'ADMIN' && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                <label className="block text-xs font-bold text-blue-400 uppercase tracking-widest mb-2 ml-1 flex justify-between">
+                  <span>Código de Autorização Admin</span>
+                  <span className="text-[10px] lowercase font-normal opacity-60">Padrão: ADMIN123</span>
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-400 transition-colors">
+                    <Shield size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    value={adminCode}
+                    onChange={(e) => setAdminCode(e.target.value)}
+                    placeholder="Digite o código secreto"
+                    required
+                    className={`w-full bg-slate-800/50 border ${error === 'Código de autorização inválido.' ? 'border-red-500' : 'border-slate-700'} text-white rounded-xl py-3 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all`}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
               {error && (
-                <p className="text-red-400 text-[10px] font-bold mt-2 ml-1 uppercase tracking-wider animate-pulse">{error}</p>
+                <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <p className="text-red-400 text-xs font-bold uppercase tracking-wider text-center">{error}</p>
+                </div>
+              )}
+              {successMessage && (
+                <div className="bg-emerald-500/10 border border-emerald-500/50 rounded-lg p-3">
+                  <p className="text-emerald-400 text-xs font-bold uppercase tracking-wider text-center">{successMessage}</p>
+                </div>
               )}
             </div>
 
@@ -172,29 +211,38 @@ const Login: React.FC = () => {
                 <Loader2 size={20} className="animate-spin" />
               ) : (
                 <>
-                  <span>Entrar como {role === 'ADMIN' ? 'Administrador' : role === 'STAFF' ? 'Comissão' : 'Atleta'}</span>
-                  <ShieldCheck size={20} className="group-hover:translate-x-1 transition-transform" />
+                  <span>
+                    {isRegistering ? 'Cadastrar' : 'Entrar'} como {role === 'ADMIN' ? 'Administrador' : role === 'STAFF' ? 'Comissão' : 'Atleta'}
+                  </span>
+                  {isRegistering ? <UserPlus size={20} className="group-hover:translate-x-1 transition-transform" /> : <ShieldCheck size={20} className="group-hover:translate-x-1 transition-transform" />}
                 </>
               )}
             </button>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-slate-900 px-2 text-slate-500 font-bold tracking-widest">Ou continue com</span>
-              </div>
+            <div className="text-center mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setError(null);
+                  setSuccessMessage(null);
+                  setAdminCode('');
+                }}
+                className="text-blue-400 hover:text-blue-300 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center space-x-2 mx-auto"
+              >
+                {isRegistering ? (
+                  <>
+                    <LogIn size={14} />
+                    <span>Já tem uma conta? Entre aqui</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={14} />
+                    <span>Não tem conta? Cadastre-se como {role === 'ADMIN' ? 'Admin' : role === 'STAFF' ? 'Comissão' : 'Atleta'}</span>
+                  </>
+                )}
+              </button>
             </div>
-
-            <button 
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center space-x-3 shadow-xl"
-            >
-              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-              <span>Entrar com Google</span>
-            </button>
           </form>
 
           <div className="mt-8 pt-6 border-t border-white/5 text-center">

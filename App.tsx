@@ -12,6 +12,7 @@ import OfficialNumbers from './views/OfficialNumbers.tsx';
 import AthletePortal from './views/AthletePortal.tsx';
 import StaffPortal from './views/StaffPortal.tsx';
 import Settings from './views/Settings.tsx';
+import AIAssistant from './views/AIAssistant.tsx';
 import { Player, Staff, Match, ViewType, DocumentStatus, Modality, TeamTheme, TeamGender, TeamDocument } from './types.ts';
 
 const App: React.FC = () => {
@@ -105,7 +106,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentView) {
       case 'DASHBOARD':
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} theme={theme} gender={gender} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} onGenderChange={setGender} theme={theme} gender={gender} />;
       case 'PLAYERS':
         return <Roster type="PLAYERS" players={filteredPlayers} staff={[]} matches={filteredMatches} modality={modality} currentGender={gender} onAddPlayer={handleAddPlayer} onUpdatePlayer={handleUpdatePlayer} onDeletePlayer={handleDeletePlayer} />;
       case 'OFFICIAL_NUMBERS':
@@ -120,6 +121,8 @@ const App: React.FC = () => {
         return <Documents players={filteredPlayers} staff={filteredStaff} onAddDocument={handleAddDocument} onValidateDocument={handleValidateDocument} />;
       case 'SETTINGS':
         return <Settings theme={theme} onThemeChange={setTheme} currentGender={gender} />;
+      case 'AI_ASSISTANT':
+        return <AIAssistant players={filteredPlayers} matches={filteredMatches} theme={theme} />;
       case 'ATHLETE_PORTAL':
         return <AthletePortal players={filteredPlayers} matches={filteredMatches} onAddDocument={handleAddDocument} onExit={() => setCurrentView('DASHBOARD')} theme={theme} gender={gender} />;
       case 'STAFF_PORTAL':
@@ -145,7 +148,7 @@ const App: React.FC = () => {
           </div>
         );
       default:
-        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} theme={theme} gender={gender} />;
+        return <Dashboard players={filteredPlayers} matches={filteredMatches} onViewChange={setCurrentView} onGenderChange={setGender} theme={theme} gender={gender} />;
     }
   };
 

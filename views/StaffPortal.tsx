@@ -363,14 +363,14 @@ const StaffPortal: React.FC<StaffPortalProps> = ({ staff, players, matches, onEx
                          <div className="h-10 w-px bg-white/10"></div>
                          <div>
                             <p className="text-xs font-bold text-white uppercase tracking-tight">vs {m.opponent}</p>
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{m.location} • {m.time}</p>
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{m.venue} • {m.time}</p>
                          </div>
                       </div>
                       <div className="flex items-center space-x-4">
                          {m.isFinished ? (
                            <div className="text-right">
                               <p className="text-[9px] font-black text-slate-500 uppercase mb-1">Resultado</p>
-                              <p className="text-xl font-black text-white italic">{m.score?.home} - {m.score?.away}</p>
+                              <p className="text-xl font-black text-white italic">{m.scoreHome} - {m.scoreAway}</p>
                            </div>
                          ) : (
                            <div className="px-4 py-2 bg-indigo-600 rounded-xl text-[10px] font-black text-white uppercase tracking-widest">Agendado</div>

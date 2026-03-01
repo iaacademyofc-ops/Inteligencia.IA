@@ -54,6 +54,7 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender }) => {
   const [localTheme, setLocalTheme] = React.useState<TeamTheme>(theme);
   const [activeTab, setActiveTab] = useState<'VISUAL' | 'DOCUMENTS'>('VISUAL');
+  const [editingGender, setEditingGender] = useState<TeamGender>(currentGender);
   const [isExtracting, setIsExtracting] = useState(false);
   
   // AI Doc States
@@ -70,10 +71,10 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
 
   const handleSave = () => {
     onThemeChange(localTheme);
-    alert(`Identidade visual da categoria ${currentGender} salva com sucesso!`);
+    alert(`Configurações de identidade visual salvas com sucesso para todas as categorias!`);
   };
 
-  const currentCategoryTheme = localTheme.categories[currentGender];
+  const currentCategoryTheme = localTheme.categories[editingGender];
 
   const handleGenerateAiDoc = async (type: string) => {
     setSelectedDocType(type);
@@ -93,16 +94,18 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
       ...localTheme,
       categories: {
         ...localTheme.categories,
-        [currentGender]: {
-          ...localTheme.categories[currentGender],
+        [editingGender]: {
+          ...localTheme.categories[editingGender],
           ...updates
         }
       }
     });
 
-    // Injetar variáveis CSS imediatamente para preview no sistema
-    if (updates.primary) document.documentElement.style.setProperty('--primary-color', updates.primary);
-    if (updates.accent) document.documentElement.style.setProperty('--accent-color', updates.accent);
+    // Injetar variáveis CSS imediatamente para preview no sistema se for o gênero atual
+    if (editingGender === currentGender) {
+      if (updates.primary) document.documentElement.style.setProperty('--primary-color', updates.primary);
+      if (updates.accent) document.documentElement.style.setProperty('--accent-color', updates.accent);
+    }
   };
 
   const extractColors = (imageUrl: string) => {
@@ -177,7 +180,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
       [TeamGender.FEMALE]: { teamName: 'TeamMaster Girls', primary: '#9d174d', secondary: '#4c0519', accent: '#f472b6', crestUrl: undefined },
       [TeamGender.YOUTH]: { teamName: 'TeamMaster Base', primary: '#b45309', secondary: '#451a03', accent: '#fbbf24', crestUrl: undefined },
     };
-    updateCategoryTheme(defaults[currentGender]);
+    updateCategoryTheme(defaults[editingGender]);
   };
 
   return (
@@ -185,7 +188,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações do Clube</h2>
-          <p className="text-slate-500 font-medium">Personalizando a categoria: <strong className="text-blue-600">{currentGender}</strong></p>
+          <p className="text-slate-500 font-medium">Gerencie a identidade visual e documentos institucionais.</p>
         </div>
         <div className="flex items-center bg-white/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200">
           <button 
@@ -206,64 +209,100 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
       </div>
 
       {activeTab === 'VISUAL' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="glass-card p-8 rounded-[2.5rem] space-y-8">
-              
-              <div className="space-y-4">
-                 <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                   <Type size={14} />
-                   <span>Nome do Time em {currentGender}</span>
-                 </label>
-                 <input 
-                   type="text"
-                   value={currentCategoryTheme.teamName}
-                   onChange={(e) => updateCategoryTheme({ teamName: e.target.value })}
-                   className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-4 px-6 text-slate-800 font-black text-xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-inner"
-                 />
-              </div>
-
-              <div className="space-y-4">
-                <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                   <Shield size={14} />
-                   <span>Escudo da Categoria: {currentGender}</span>
-                 </label>
-                 <div className="flex flex-col md:flex-row items-center gap-8 bg-slate-50/30 p-6 rounded-[2rem] border border-slate-100">
+        <div className="space-y-8">
+          {/* Seletor de Categoria para Edição */}
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 ml-2">Selecione a Categoria para Editar</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {Object.values(TeamGender).map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setEditingGender(g)}
+                  className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
+                    editingGender === g 
+                      ? 'border-blue-600 bg-blue-50 shadow-md' 
+                      : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
                     <div 
-                      onClick={() => crestInputRef.current?.click()}
-                      className={`w-32 h-32 rounded-[2.2rem] bg-white border-2 border-dashed ${isExtracting ? 'border-blue-500 animate-pulse' : 'border-slate-200'} flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm overflow-hidden group relative`}
+                      className="w-8 h-8 rounded-lg shadow-sm flex items-center justify-center text-white"
+                      style={{ backgroundColor: localTheme.categories[g].primary }}
                     >
-                      {currentCategoryTheme.crestUrl ? (
-                        <img src={currentCategoryTheme.crestUrl} className="w-full h-full object-contain p-2" alt="Escudo" />
+                      {localTheme.categories[g].crestUrl ? (
+                        <img src={localTheme.categories[g].crestUrl} className="w-full h-full object-contain p-1" />
                       ) : (
-                        <>
-                          <Camera size={24} className="text-slate-300 mb-1" />
-                          <span className="text-[9px] font-black uppercase text-slate-400">Upload {currentGender}</span>
-                        </>
+                        <Shield size={16} />
                       )}
-                      <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors"></div>
                     </div>
-                    <div className="flex-1 space-y-3">
-                       <h4 className="text-lg font-black text-slate-800 tracking-tight flex items-center">
-                         <Sparkles size={18} className="text-blue-500 mr-2" />
-                         Branding Automático Ativo
-                       </h4>
-                       <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                         Ao carregar o escudo de <strong>{currentGender}</strong>, o sistema atualizará automaticamente as cores primária, secundária e o degradê desta categoria para manter a harmonia visual.
-                       </p>
-                       <div className="flex gap-3 pt-2">
-                          <button 
-                            onClick={() => crestInputRef.current?.click()}
-                            className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center space-x-2"
-                          >
-                            <Upload size={14} />
-                            <span>{currentCategoryTheme.crestUrl ? 'Trocar Escudo' : 'Selecionar Escudo'}</span>
-                          </button>
-                       </div>
-                    </div>
-                    <input type="file" ref={crestInputRef} className="hidden" accept="image/*" onChange={handleCrestUpload} />
-                 </div>
-              </div>
+                    <span className={`text-sm font-black uppercase tracking-tight ${editingGender === g ? 'text-blue-700' : 'text-slate-600'}`}>
+                      {g}
+                    </span>
+                  </div>
+                  {editingGender === g && <CheckCircle size={18} className="text-blue-600" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="glass-card p-8 rounded-[2.5rem] space-y-8">
+                
+                <div className="space-y-4">
+                   <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                     <Type size={14} />
+                     <span>Nome do Time em {editingGender}</span>
+                   </label>
+                   <input 
+                     type="text"
+                     value={currentCategoryTheme.teamName}
+                     onChange={(e) => updateCategoryTheme({ teamName: e.target.value })}
+                     className="w-full bg-slate-50/50 border border-slate-200 rounded-2xl py-4 px-6 text-slate-800 font-black text-xl focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-inner"
+                   />
+                </div>
+
+                <div className="space-y-4">
+                  <label className="flex items-center space-x-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                     <Shield size={14} />
+                     <span>Escudo da Categoria: {editingGender}</span>
+                   </label>
+                   <div className="flex flex-col md:flex-row items-center gap-8 bg-slate-50/30 p-6 rounded-[2rem] border border-slate-100">
+                      <div 
+                        onClick={() => crestInputRef.current?.click()}
+                        className={`w-32 h-32 rounded-[2.2rem] bg-white border-2 border-dashed ${isExtracting ? 'border-blue-500 animate-pulse' : 'border-slate-200'} flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm overflow-hidden group relative`}
+                      >
+                        {currentCategoryTheme.crestUrl ? (
+                          <img src={currentCategoryTheme.crestUrl} className="w-full h-full object-contain p-2" alt="Escudo" />
+                        ) : (
+                          <>
+                            <Camera size={24} className="text-slate-300 mb-1" />
+                            <span className="text-[9px] font-black uppercase text-slate-400">Upload {editingGender}</span>
+                          </>
+                        )}
+                        <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors"></div>
+                      </div>
+                      <div className="flex-1 space-y-3">
+                         <h4 className="text-lg font-black text-slate-800 tracking-tight flex items-center">
+                           <Sparkles size={18} className="text-blue-500 mr-2" />
+                           Branding Automático Ativo
+                         </h4>
+                         <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                           Ao carregar o escudo de <strong>{editingGender}</strong>, o sistema atualizará automaticamente as cores primária, secundária e o degradê desta categoria para manter a harmonia visual.
+                         </p>
+                         <div className="flex gap-3 pt-2">
+                            <button 
+                              onClick={() => crestInputRef.current?.click()}
+                              className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center space-x-2"
+                            >
+                              <Upload size={14} />
+                              <span>{currentCategoryTheme.crestUrl ? 'Trocar Escudo' : 'Selecionar Escudo'}</span>
+                            </button>
+                         </div>
+                      </div>
+                      <input type="file" ref={crestInputRef} className="hidden" accept="image/*" onChange={handleCrestUpload} />
+                   </div>
+                </div>
 
               {/* Seletor de Cores Dinâmico */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100">
@@ -338,7 +377,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
                 className="flex items-center space-x-2 px-6 py-3 text-slate-600 hover:bg-slate-100 rounded-2xl font-bold text-sm transition-all"
               >
                 <RefreshCw size={18} />
-                <span>Restaurar {currentGender}</span>
+                <span>Restaurar {editingGender}</span>
               </button>
               <button 
                 onClick={handleSave}
@@ -346,13 +385,13 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
                 style={{ backgroundColor: currentCategoryTheme.primary }}
               >
                 <Save size={18} />
-                <span>Salvar Tudo em {currentGender}</span>
+                <span>Salvar Tudo em {editingGender}</span>
               </button>
             </div>
           </div>
 
           <div className="space-y-6">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Preview em Tempo Real ({currentGender})</p>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Preview em Tempo Real ({editingGender})</p>
              
              {/* Preview do Degradê de Fundo Dinâmico */}
              <div 
@@ -368,7 +407,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
                         <Shield size={60} className="text-white" />
                       )}
                    </div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Ambiente {currentGender}</p>
+                   <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60 mb-2">Ambiente {editingGender}</p>
                    <h3 className="text-2xl font-black italic tracking-tighter uppercase leading-tight drop-shadow-xl mb-6 px-4">
                      {currentCategoryTheme.teamName}
                    </h3>
@@ -392,6 +431,7 @@ const Settings: React.FC<SettingsProps> = ({ theme, onThemeChange, currentGender
              </div>
           </div>
         </div>
+      </div>
       ) : (
         <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-300 pb-20">
           <div className="glass-card p-8 rounded-[2.5rem] relative overflow-hidden group">
