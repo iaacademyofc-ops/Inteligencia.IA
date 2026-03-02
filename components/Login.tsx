@@ -15,6 +15,11 @@ const Login: React.FC = () => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [adminCode, setAdminCode] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+
+  const isConfigured = !!(import.meta.env.VITE_SUPABASE_URL && 
+                       import.meta.env.VITE_SUPABASE_URL.startsWith('http') &&
+                       !import.meta.env.VITE_SUPABASE_URL.includes('placeholder'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,6 +32,13 @@ const Login: React.FC = () => {
         // Validação de tamanho de senha
         if (password.length < 6) {
           setError('A senha deve ter pelo menos 6 caracteres.');
+          setLoading(false);
+          return;
+        }
+
+        // Verificação de configuração do Supabase
+        if (!isConfigured) {
+          setError('Erro de Configuração: A URL do Supabase é inválida ou não foi configurada corretamente.');
           setLoading(false);
           return;
         }
@@ -69,8 +81,13 @@ const Login: React.FC = () => {
           setError(authError.message);
         }
       }
-    } catch (err) {
-      setError('Ocorreu um erro. Verifique sua conexão.');
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Erro de Conexão: Não foi possível alcançar o servidor do banco de dados. Verifique se a URL do Supabase está correta nas configurações de ambiente.');
+      } else {
+        setError(err.message || 'Ocorreu um erro inesperado. Verifique sua conexão.');
+      }
     } finally {
       setLoading(false);
     }
@@ -193,6 +210,14 @@ const Login: React.FC = () => {
               {error && (
                 <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 animate-in fade-in slide-in-from-top-1 duration-300">
                   <p className="text-red-400 text-xs font-bold uppercase tracking-wider text-center">{error}</p>
+                  {!isConfigured && (
+                    <button 
+                      onClick={() => setShowSetupGuide(true)}
+                      className="mt-2 text-[10px] text-blue-400 underline block w-full text-center hover:text-blue-300"
+                    >
+                      Como configurar as chaves?
+                    </button>
+                  )}
                 </div>
               )}
               {successMessage && (
@@ -201,6 +226,31 @@ const Login: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {showSetupGuide && (
+              <div className="mt-6 p-4 bg-slate-800/50 border border-slate-700 rounded-xl animate-in zoom-in-95 duration-300">
+                <h4 className="text-blue-400 text-xs font-bold uppercase mb-3 flex items-center gap-2">
+                  <Shield size={14} /> Guia de Configuração
+                </h4>
+                <ol className="text-[11px] text-slate-400 space-y-3 list-decimal ml-4">
+                  <li>Acesse o <b>Supabase.com</b> e crie um projeto.</li>
+                  <li>Vá em <b>Project Settings {'>'} API</b>.</li>
+                  <li>No <b>AI Studio</b> (esta plataforma), procure o ícone de <b>Engrenagem</b> ou <b>Secrets</b> na barra lateral.</li>
+                  <li>Adicione as variáveis:
+                    <div className="mt-2 p-2 bg-black/30 rounded font-mono text-[10px] text-slate-300 select-all">
+                      VITE_SUPABASE_URL<br/>
+                      VITE_SUPABASE_ANON_KEY
+                    </div>
+                  </li>
+                </ol>
+                <button 
+                  onClick={() => setShowSetupGuide(false)}
+                  className="mt-4 w-full py-2 text-[10px] uppercase font-bold text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Fechar Guia
+                </button>
+              </div>
+            )}
 
             <button 
               type="submit"
